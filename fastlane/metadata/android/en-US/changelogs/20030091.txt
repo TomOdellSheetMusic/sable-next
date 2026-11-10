@@ -1,0 +1,4 @@
+- Bridge badges can be turned off in the appearance settings, and a space can be marked as bridged so the badge sits on the space instead of on each of its rooms.
+- Bridged rooms get a Bridges tab in their settings listing each bridge, its network, the bridged chat with a link to it, the bridge bot and who set it up.
+- Bridged rooms show the network they come from, like Discord or WhatsApp, as a small badge on their avatar in the room list.
+- People in a call are listed by name in the room list.

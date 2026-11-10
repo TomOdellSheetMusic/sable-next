@@ -1,5 +1,89 @@
 # Sable Changelog
 
+## 2.3.9 (2026-11-10)
+
+### Features
+
+* Bridge badges can be turned off in the appearance settings, and a space can be marked as bridged so the badge sits on the space instead of on each of its rooms.
+* Bridged rooms get a Bridges tab in their settings listing each bridge, its network, the bridged chat with a link to it, the bridge bot and who set it up.
+* Bridged rooms show the network they come from, like Discord or WhatsApp, as a small badge on their avatar in the room list.
+* People in a call are listed by name in the room list.
+* Collapse every open space folder at once from the space bar's right-click menu or a folder's menu.
+* The blocked users list in settings stays collapsed until you open it, so blocked names are not shown when you scroll past.
+* Themes can read the composer height from the `--composer-height` CSS variable on the room view, for example to pad a timeline drawn behind a translucent composer.
+* Hear yourself while testing your microphone in call settings, through the selected output and with your voice filters applied.
+* A new setting, off by default, jumps to your message when you send while reading older messages.
+* PMP bio editor now uses the same editor as the main profile, allowing you to easily format your PMP bios
+* The room header shows a lock next to search: closed when the room is end-to-end encrypted, open when it is not.
+* Room settings show a Not encrypted badge to members who cannot turn encryption on.
+* The forward picker and room autocomplete show the space each room belongs to, so rooms with the same name can be told apart.
+* Animated WebP, APNG and AVIF images can be saved to your GIFs, like GIFs.
+* On homeservers that support selective presence (MSC4495), you choose who sees your online status: people on your homeserver, specific people, rooms that allow it, and blocked servers. Rooms can suggest or forbid sharing, and suggesting rooms and DMs ask you once whether to share.
+* You can log out from the setup steps after signing in, for example after signing into the wrong account.
+* Give a space folder its own icon, or give any space in the bar an icon only you see. Personal space icons use MSC3015.
+* Emoji and custom emotes picked in the composer now count toward frequently used and sync across devices with reactions. Entries written by other apps are kept instead of being removed.
+* Videos show their file size before you play them, like images and files already do.
+* Press Ctrl+C or Cmd+C in the media viewer to copy the open image.
+* The web app can open `matrix:` links. Turn it on from Timeline settings, or install Sable as an app in a Chromium browser.
+* `/.well-known/sable` accepts most settings in `settingsDefaults` and `settingsLocked`, such as `hour24Clock`.
+
+### Fixes
+
+* On Android, reopening Sable from a share, a notification or a link no longer risks a screen that stops responding.
+* Android no longer fails to restore the session after upgrading to 2.3.8.
+* Pausing animated emoji, stickers and avatars no longer stalls the app when the window loses focus.
+* Underscores and asterisks in a pasted web address no longer turn part of it into italics.
+* A bridge badge falls back to the picture of the bridged network, like the Discord server icon, when the bridge sets none for the service itself.
+* Edited messages no longer show their old text after the app catches up on a room it missed messages in.
+* A digit or symbol next to an emoji no longer makes the whole message large.
+* The core console log level setting now applies to the Electron app, where the core kept logging at info.
+* The emoji board no longer freezes the app when searching or opening it at some browser zoom levels.
+* A fully typed emoji shortcode is suggested first, ahead of emoji you use more often.
+* Switching accounts no longer waits for the previous account's search index to be saved.
+* Allow Flatpak builds to detect screen readers through the accessibility bus.
+* Adding a room address on another server now explains that only addresses on your own server can be added, instead of failing with a generic error.
+* Get reply to reactions to work even with hidden events toggle disabled
+* Tenor and GIPHY link previews play like GIFs, looping without sound or controls, instead of showing a play button or a paused video player.
+* App sounds no longer play during a native iOS call, where they could take over its audio and leave your microphone unheard. Calls also report when the microphone fails while they stay connected.
+* Crash reporting now works on iOS, where it never started because its bridge was left out of the app. Error reports can also be searched by the operation that failed.
+* Klipy links show their GIF, sticker or clip when client-side previews are on, and no longer preview as a Cloudflare "Just a moment..." page.
+* The room list opens faster in accounts with many rooms.
+* Link previews and their images identify as Sable instead of a social media crawler, so sites that block crawlers serve the real content.
+* On phones, swiping from a room to the room list keeps the room open behind it, and swiping a thread closed no longer opens the list.
+* Signing in again no longer fails with "The supplied device was created by a different client" after the app had to register with the account provider again.
+* The mobile apps no longer treat themselves as a browser when the platform cannot be read, which sent iOS calls through the web call engine.
+* Large photos show in post link previews.
+* The push troubleshooter test reaches UnifiedPush distributors such as the ntfy app again instead of timing out.
+* Rooms and settings load right away when the app is opened while a notification is still being decrypted, instead of waiting several seconds for sync to start.
+* Signing in again no longer fails forever when the server refuses the saved device. The next attempt signs in as a new device.
+* The app reconnects after switching between Wi-Fi and mobile data instead of staying stuck on the old network.
+* Update Svelte, localization, editor and media dependencies.
+* Update SvelteKit, Electron, PDF rendering and media metadata dependencies.
+* Avatars and space icons no longer stay blank after the app comes back from the background or until the media cache is cleared.
+* The app now reports when sync has been unable to start or stop for over a minute, so a frozen sync shows up in error reports instead of going unnoticed.
+* Sync starts again when the app returns from the background, instead of staying stopped and leaving rooms blank when a notification arrived just before the app was hidden.
+* The app no longer freezes for seconds when the room list changes in accounts with many rooms.
+* Sound volumes are kept after restarting.
+* On the web and desktop, search history copies and the search crawler now pause on metered or offline connections when "unmetered only" is on, and a copy picks up again as soon as the connection or window comes back.
+* Search sharing only copies from devices that have more search history than this one.
+* Search sharing copies history as binary data instead of base64 text. Devices copy only from devices running this version or later.
+* Error reports from the Android and iOS apps now say which platform and device they came from, Android reports problems from the moment the app starts, and room IDs without a server name are removed from reports.
+* Logging out or switching account no longer hangs while search history is being copied from another device or while a room is opening.
+* Two open tabs or devices on different versions no longer overwrite each other's synced settings in a loop, and an older version no longer wipes settings it does not know about.
+* Swiping down on an expanded sheet collapses it again before a second swipe closes it.
+* Translation keys no longer replace the interface text while developer tools are turned off.
+* On Android, UnifiedPush through a Matrix gateway only sends event ids, so the push server no longer sees message content and a forged push cannot show made-up text.
+* Push gateway settings say to leave them blank when using ntfy.
+* On Android, notifications through ntfy and other UnifiedPush Matrix gateways are no longer dropped. Each account keeps a single subscription with the distributor, and a distributor that requires VAPID no longer makes registration fail.
+* Verifying this session from a device that does not sign it, such as FluffyChat without its recovery key unlocked, now reports a failure instead of a success that leaves the session unverified.
+* Linux desktop builds only ship the screen audio library for their own architecture.
+* Stop web notifications from showing twice while the tab is open but not focused.
+* The web app now shows its version number instead of a commit hash, and its error reports are filed under the same version as the desktop and mobile apps.
+
+### Documentation
+
+* Self-hosting docs now list every setting accepted by `settingsDefaults` and `settingsLocked`, with JSON schemas for `config.json` and `/.well-known/sable`.
+
 ## 2.3.8 (2026-11-08)
 
 ### Features
