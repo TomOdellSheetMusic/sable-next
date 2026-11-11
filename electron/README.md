@@ -78,19 +78,26 @@ The native Rust modules can be cross-compiled with `cargo-xwin`. Install
 `cargo-xwin`, LLVM (including `clang-cl` and `lld-link`), CMake and Ninja, then add
 Rust's `x86_64-pc-windows-msvc` target
 (`rustup target add x86_64-pc-windows-msvc`). `cargo-xwin` downloads the Microsoft
-SDK and CRT on its first build. Build the web assets as usual, then compile and bundle
-the Electron main process for Windows:
+SDK and CRT on its first build. Run `mise install` and `mise exec -- pnpm install
+--frozen-lockfile` once to install the repository's web build tools and dependencies.
+Use Bash in WSL/Linux, from the repository root. `mise exec` puts the pinned
+`wasm-bindgen` and `wasm-opt` tools on PATH.
+
+Build the web assets, then compile and bundle the Electron main process for Windows:
 
 ```sh
 # Build sequentially; disable LTO and limit Cargo workers on memory-limited hosts.
 CARGO_BUILD_JOBS=1 CARGO_PROFILE_WASM_RELEASE_LTO=false \
-  CARGO_PROFILE_WASM_RELEASE_CODEGEN_UNITS=16 pnpm build
+  CARGO_PROFILE_WASM_RELEASE_CODEGEN_UNITS=16 mise exec -- pnpm build
 CARGO_BUILD_JOBS=1 CARGO_PROFILE_RELEASE_LTO=false \
   CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 \
   SABLE_NATIVE_TARGET=x86_64-pc-windows-msvc \
   SABLE_IDENTIFIER=moe.sable.next.nightly \
-  node electron/build.mjs --release
+  mise exec -- node electron/build.mjs --release
 ```
+
+The commands above prepare the app; they do not produce an installer. To create
+the `.exe`, continue with the packaging step below.
 
 Package those compiled assets with Wine installed, or use electron-builder's
 Wine container. Run from the repository root:
@@ -100,17 +107,23 @@ docker run --rm --memory=4g --memory-swap=5g --cpus=2 \
   --user "$(id -u):$(id -g)" \
   --env ELECTRON_CACHE=/tmp/sable-electron \
   --env ELECTRON_BUILDER_CACHE=/tmp/sable-builder \
-  --env WINEPREFIX=/tmp/sable-wine \
+  --env USE_SYSTEM_WINE=true \
   --env XDG_CACHE_HOME=/tmp/sable-cache \
   --env CSC_IDENTITY_AUTO_DISCOVERY=false \
   --volume "$PWD:/project" --workdir /project/electron \
   electronuserland/builder@sha256:f3a8d451994c881d0972e7b1846ee4d4fdc15eb41fc6b1f350b38cbf99ca90fe \
-  sh -c './node_modules/.bin/electron-builder \
+  sh -c 'export WINEPREFIX=/tmp/sable-wine
+    mkdir -p "$WINEPREFIX" && chmod 700 "$WINEPREFIX" &&
+    exec ./node_modules/.bin/electron-builder \
     --win nsis --x64 --publish never \
     --config electron-builder.nightly.yml \
     -c.extraMetadata.version="$(node -p "require(\"../package.json\").version")" \
     -c.extraMetadata.autoUpdate=false'
 ```
+
+Wine needs a prefix directory owned by the container user. The command creates
+`/tmp/sable-wine` as that user; do not set `WINEPREFIX=/tmp`, since `/tmp` itself
+is owned by root.
 
 This creates an unsigned Nightly installer in `electron/release`, including
 local source changes, with automatic updates disabled. The command invokes
