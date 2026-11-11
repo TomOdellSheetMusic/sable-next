@@ -43,8 +43,8 @@
   /** Routes whose own index is the room list. Anywhere else the list would
       hide the page that was asked for behind an inert panel. Keyed on the path
       so room-list hydration cannot flash the sidebar over a room. */
-  const LIST_INDEX_PATHS = new Set(['/home', '/rooms', '/direct']);
-  const BLANK_INDEX_PATHS = new Set(['/home', '/rooms']);
+  const LIST_INDEX_PATHS = new Set(['/rooms', '/direct']);
+  const BLANK_INDEX_PATHS = new Set(['/rooms']);
   const MOBILE_QUICK_TOOLS_PATHS = new Set(['/navigate', '/inbox', '/profile', '/alerts']);
   let pathname = $derived(page.url.pathname);
   let settledPath = $state(page.url.pathname);

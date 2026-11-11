@@ -176,7 +176,7 @@ test.each([
   ['/rooms', {}, '/create-room', ['Unspaced']],
   ['/direct', {}, '/create-room', ['Alice']],
   ['/create-room', {}, '/create-room', ['Unspaced']],
-  ['/home', {}, '/create-room', ['Child', 'Unspaced', 'Alice']],
+  ['/home', {}, '/create-room', ['Unspaced']],
   [
     '/space/!space%3Aexample.org/lobby',
     { spaceId: '!space:example.org' },

@@ -25,14 +25,14 @@ afterEach(() => {
   resetNavigation();
 });
 
-test('starts on rooms by default', async () => {
+test('starts on Home by default', async () => {
   render(Page);
   await tick();
 
-  expect(goto).toHaveBeenCalledWith('/rooms', { replace: true });
+  expect(goto).toHaveBeenCalledWith('/home', { replace: true });
 });
 
-test('starts on Home when it is enabled', async () => {
+test('starts on Home with the all-rooms sidebar enabled', async () => {
   setPreference('showHome', true);
   render(Page);
   await tick();
@@ -52,5 +52,5 @@ test('waits for a notification being opened before restoring a room', async () =
   await opening;
   await tick();
 
-  expect(goto).toHaveBeenCalledWith('/rooms', { replace: true });
+  expect(goto).toHaveBeenCalledWith('/home', { replace: true });
 });

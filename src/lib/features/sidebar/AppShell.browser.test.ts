@@ -94,3 +94,13 @@ test('tablet shows fixed desktop navigation with room for the drawer', async () 
     },
   });
 });
+
+test('home dashboard content is reachable on phones without closing a pinned drawer', async () => {
+  await page.viewport(414, 800);
+  visit('/home');
+  const screen = await render(Harness, { core: shellCore });
+
+  await expect.element(screen.getByRole('button', { name: 'Page content' })).toBeVisible();
+  await expect.element(screen.getByRole('button', { name: 'Page content' })).toBeEnabled();
+  expect(document.querySelector('.content-panel')?.hasAttribute('inert')).toBe(false);
+});

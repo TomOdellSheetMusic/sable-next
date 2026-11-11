@@ -1,5 +1,5 @@
 <script lang="ts">
-  import HomeLanding from '#lib/features/home/HomeLanding.svelte';
+  import HomeDashboard from '#lib/features/home/HomeDashboard.svelte';
 </script>
 
-<HomeLanding />
+<HomeDashboard />

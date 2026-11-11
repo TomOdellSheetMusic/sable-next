@@ -20,13 +20,13 @@ function renderHome() {
   });
 }
 
-test('redirects to rooms without rendering Home when disabled', async () => {
+test('renders Home with the all-rooms sidebar disabled', async () => {
   setPreference('showHome', false);
   renderHome();
   await tick();
 
-  expect(goto).toHaveBeenCalledWith('/rooms', { replace: true });
-  expect(screen.queryByText('Home content')).not.toBeInTheDocument();
+  expect(goto).not.toHaveBeenCalled();
+  expect(screen.getByText('Home content')).toBeInTheDocument();
 });
 
 test('renders Home when enabled', async () => {
@@ -38,7 +38,7 @@ test('renders Home when enabled', async () => {
   expect(goto).not.toHaveBeenCalled();
 });
 
-test('redirects when Home is disabled while open', async () => {
+test('keeps Home open when the all-rooms sidebar is disabled', async () => {
   setPreference('showHome', true);
   renderHome();
   await tick();
@@ -46,6 +46,6 @@ test('redirects when Home is disabled while open', async () => {
   setPreference('showHome', false);
   await tick();
 
-  expect(goto).toHaveBeenCalledWith('/rooms', { replace: true });
-  expect(screen.queryByText('Home content')).not.toBeInTheDocument();
+  expect(goto).not.toHaveBeenCalled();
+  expect(screen.getByText('Home content')).toBeInTheDocument();
 });

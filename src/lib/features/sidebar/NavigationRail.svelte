@@ -174,25 +174,21 @@
   let dropState = $state<DropState<LayoutRef> | null>(null);
 
   let items = $derived<readonly RailItem[]>([
-    ...(preferences.showHome
-      ? [
-          {
-            href: homeRoot,
-            activePrefix: '/home',
-            navigateHref: sectionHref(HOME_PATHS_KEY, homeRoot),
-            icon: HouseIcon,
-            label: 'nav.home',
-            unread: homeUnread,
-            section: 'home',
-            badge: false,
-          } satisfies RailItem,
-        ]
-      : []),
+    {
+      href: homeRoot,
+      activePrefix: '/home',
+      navigateHref: homeRoot,
+      icon: HouseIcon,
+      label: 'nav.home',
+      unread: homeUnread,
+      section: 'home',
+      badge: false,
+    },
     {
       href: roomsRoot,
       activePrefix: '/rooms',
       navigateHref: sectionHref(ROOMS_PATHS_KEY, roomsRoot),
-      icon: preferences.showHome ? HashIcon : HouseIcon,
+      icon: HashIcon,
       label: 'nav.unspaced',
       unread: unspacedUnread,
       section: 'unspaced',

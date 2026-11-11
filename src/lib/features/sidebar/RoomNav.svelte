@@ -185,7 +185,9 @@
   let leaveRoomId = $state<string | null>(null);
 
   let directSection = $derived(pathname.startsWith('/direct'));
-  let unspacedSection = $derived(pathname.startsWith('/rooms'));
+  let unspacedSection = $derived(
+    pathname.startsWith('/rooms') || (pathname.startsWith('/home') && !preferences.showHome)
+  );
 
   let activeSpace = $derived(
     pathname.startsWith('/space') ? (findRoomByPathId(roomList.rooms, spaceId) ?? null) : null
@@ -231,7 +233,7 @@
     home: HouseIcon,
   };
 
-  let section = $derived(navSectionKind(pathname));
+  let section = $derived(unspacedSection ? 'unspaced' : navSectionKind(pathname));
   let labels = $derived(navSectionLabels(section));
   let listLabel = $derived(i18n.t(labels.list));
   let listEmpty = $derived(i18n.t(labels.empty));
@@ -348,7 +350,6 @@
       return resolve('/(app)/rooms/[roomId]', { roomId: routeId });
     }
 
-    // The disabled Home layout redirects to /rooms and drops the selected room.
     if (!preferences.showHome) return roomSectionPath(roomList.rooms, row.roomId);
 
     return resolve('/(app)/home/[roomId]', { roomId: routeId });

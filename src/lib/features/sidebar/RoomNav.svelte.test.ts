@@ -357,6 +357,7 @@ test('nests subspaces with thread lines and links past the depth limit to the lo
 });
 
 test('each page renders its section in the order the core lists it', async () => {
+  setPreference('showHome', true);
   roomsFixture.rooms = [
     makeRoom({ room_id: '!a:example.org', name: 'A' }),
     makeRoom({ room_id: '!b:example.org', name: 'B' }),
@@ -425,6 +426,7 @@ test('rows past the first screens render their details once they come near the v
 });
 
 test('favourites sit in their own section above the rest of the list', async () => {
+  setPreference('showHome', true);
   roomsFixture.rooms = [
     makeRoom({ room_id: '!busy:example.org', name: 'Busy' }),
     makeRoom({
@@ -794,6 +796,7 @@ test('a space list header wears the space avatar when collapsed', async () => {
 });
 
 test('a voice room shows a speaker icon and the live count', async () => {
+  setPreference('showHome', true);
   roomsFixture.rooms = [
     makeRoom({ room_id: '!voice:example.org', name: 'Voice', room_kind: 'voice' }),
     makeRoom({
@@ -867,6 +870,7 @@ test('the sometimes icon mode keeps existing avatars in an expanded sidebar', as
 });
 
 test('direct messages and unspaced rooms without an avatar show their initial', async () => {
+  setPreference('showHome', true);
   roomsFixture.rooms = [
     makeRoom({ room_id: '!dm:example.org', name: 'alice', is_direct: true }),
     makeRoom({ room_id: '!room:example.org', name: 'Garden' }),
@@ -1359,4 +1363,23 @@ test('bridge badges leave the room icons when the preference is off', async () =
   expect(screen.getByText('Friend')).toBeInTheDocument();
   expect(screen.queryByRole('img', { name: 'nav.bridgedFrom:Discord' })).toBeNull();
   setPreference('showBridgeBadges', true);
+});
+
+test('Home keeps the all-rooms sidebar optional without hiding the dashboard route', async () => {
+  visit('/home');
+  setPreference('showHome', false);
+  roomsFixture.rooms = [
+    makeRoom({ room_id: '!plain:example.org', name: 'Plain' }),
+    makeRoom({ room_id: '!spaced:example.org', name: 'Spaced' }),
+  ];
+  listSections(
+    sectionView('home', { rooms: ['!plain:example.org', '!spaced:example.org'] }),
+    sectionView('unspaced', { rooms: ['!plain:example.org'] })
+  );
+  await mountNav();
+  expect(roomNames()).toEqual(['Plain']);
+  expect(row('Plain')).toHaveAttribute('href', '/rooms/!plain%3Aexample.org');
+  setPreference('showHome', true);
+  await tick();
+  expect(roomNames()).toEqual(['Plain', 'Spaced']);
 });

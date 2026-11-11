@@ -152,11 +152,11 @@ test('badges the unspaced section', async () => {
   );
 });
 
-test('home is absent until the preference asks for it', async () => {
+test('home is available independently of the all-rooms preference', async () => {
   renderRail({ spaces: [], mobile: true });
   await tick();
 
-  expect(linkTo('/home')).toBeNull();
+  expect(linkTo('/home')).not.toBeNull();
   expect(linkTo('/rooms')).not.toBeNull();
 
   setPreference('showHome', true);
@@ -781,7 +781,7 @@ test('records the active desktop direct chat', async () => {
   expect(savedSpacePaths()).toEqual({ direct: '/direct/!dm%3Aexample.org' });
 });
 
-test('restores the home and rooms tabs to their last desktop room', async () => {
+test('opens the dashboard from Home and restores the rooms tab to its last room', async () => {
   localStorage.setItem(
     'sable-space-paths',
     JSON.stringify({ home: '/home/!a%3Aexample.org', rooms: '/rooms/!b%3Aexample.org' })
@@ -790,7 +790,7 @@ test('restores the home and rooms tabs to their last desktop room', async () => 
   renderRail({ spaces: [] });
   await tick();
 
-  expect(tab('nav.home')).toHaveAttribute('href', '/home/!a%3Aexample.org');
+  expect(tab('nav.home')).toHaveAttribute('href', '/home');
   expect(tab('nav.unspaced')).toHaveAttribute('href', '/rooms/!b%3Aexample.org');
 });
 

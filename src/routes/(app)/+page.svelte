@@ -33,9 +33,7 @@
             lastRoomSection(session.account_id),
             preferences.showHome
           )
-        : preferences.showHome
-          ? resolve('/(app)/home')
-          : resolve('/(app)/rooms');
+        : resolve('/(app)/home');
     redirected = true;
     // eslint-disable-next-line svelte/no-navigation-without-resolve -- takeAfterLogin() and restoredRoomPath() resolve their routes
     void goto(requestedPath || target, { replace: true });
