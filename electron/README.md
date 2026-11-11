@@ -103,7 +103,7 @@ Package those compiled assets with Wine installed, or use electron-builder's
 Wine container. Run from the repository root:
 
 ```sh
-docker run --rm --memory=4g --memory-swap=5g --cpus=2 \
+docker run --rm --name sable-windows-package --memory=4g --memory-swap=5g --cpus=2 \
   --user "$(id -u):$(id -g)" \
   --env ELECTRON_CACHE=/tmp/sable-electron \
   --env ELECTRON_BUILDER_CACHE=/tmp/sable-builder \
@@ -120,6 +120,10 @@ docker run --rm --memory=4g --memory-swap=5g --cpus=2 \
     -c.extraMetadata.version="$(node -p "require(\"../package.json\").version")" \
     -c.extraMetadata.autoUpdate=false'
 ```
+
+The fixed container name prevents two copies of this command from packaging
+into the same output directory at once. Wait for an existing run to finish before
+starting another.
 
 Wine needs a prefix directory owned by the container user. The command creates
 `/tmp/sable-wine` as that user; do not set `WINEPREFIX=/tmp`, since `/tmp` itself
