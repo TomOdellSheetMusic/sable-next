@@ -12,10 +12,27 @@ const appVersion =
   JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')).version;
 const release = process.argv.includes('--release');
 const out = join(here, 'dist');
+// Native builds use the host platform. Linux can cross-compile Windows modules
+// with cargo-xwin, whose SDK and linker setup also covers C/C++ dependencies.
+const nativeTarget = process.env.SABLE_NATIVE_TARGET;
+if (nativeTarget && !['x86_64-pc-windows-msvc', 'aarch64-pc-windows-msvc'].includes(nativeTarget)) {
+  throw new Error(`Unsupported SABLE_NATIVE_TARGET: ${nativeTarget}`);
+}
+const nativePlatform = nativeTarget ? 'win32' : process.platform;
+const crossWindows = nativeTarget && process.platform !== 'win32';
 
 execFileSync(
   'cargo',
-  ['build', '-p', 'sable-node', '-p', 'sable-audiofox', ...(release ? ['--release'] : [])],
+  [
+    ...(crossWindows ? ['xwin'] : []),
+    'build',
+    '-p',
+    'sable-node',
+    '-p',
+    'sable-audiofox',
+    ...(nativeTarget ? ['--target', nativeTarget] : []),
+    ...(release ? ['--release'] : []),
+  ],
   {
     cwd: root,
     stdio: 'inherit',
@@ -29,11 +46,14 @@ for (const name of ['sable_node', 'sable_audiofox']) {
     darwin: `lib${name}.dylib`,
     linux: `lib${name}.so`,
     win32: `${name}.dll`,
-  }[process.platform];
-  copyFileSync(join(target, release ? 'release' : 'debug', library), join(out, `${name}.node`));
+  }[nativePlatform];
+  copyFileSync(
+    join(target, ...(nativeTarget ? [nativeTarget] : []), release ? 'release' : 'debug', library),
+    join(out, `${name}.node`)
+  );
 }
 
-if (process.platform === 'linux') {
+if (nativePlatform === 'linux') {
   const prebuild = join(
     here,
     'node_modules/@vencord/venmic/prebuilds',

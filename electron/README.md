@@ -71,3 +71,53 @@ It applies to the window and the Sable core. `socks5://` resolves host names on 
 
 Calls use WebRTC over UDP, which SOCKS does not carry. Set Settings → Calls → Network interfaces
 for calls to "Only through a proxy" to keep them off the direct route.
+
+## Build Windows from Linux
+
+The native Rust modules can be cross-compiled with `cargo-xwin`. Install
+`cargo-xwin`, LLVM (including `clang-cl` and `lld-link`), CMake and Ninja, then add
+Rust's `x86_64-pc-windows-msvc` target
+(`rustup target add x86_64-pc-windows-msvc`). `cargo-xwin` downloads the Microsoft
+SDK and CRT on its first build. Build the web assets as usual, then compile and bundle
+the Electron main process for Windows:
+
+```sh
+# Build sequentially; disable LTO and limit Cargo workers on memory-limited hosts.
+CARGO_BUILD_JOBS=1 CARGO_PROFILE_WASM_RELEASE_LTO=false \
+  CARGO_PROFILE_WASM_RELEASE_CODEGEN_UNITS=16 pnpm build
+CARGO_BUILD_JOBS=1 CARGO_PROFILE_RELEASE_LTO=false \
+  CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 \
+  SABLE_NATIVE_TARGET=x86_64-pc-windows-msvc \
+  SABLE_IDENTIFIER=moe.sable.next.nightly \
+  node electron/build.mjs --release
+```
+
+Package those compiled assets with Wine installed, or use electron-builder's
+Wine container. Run from the repository root:
+
+```sh
+docker run --rm --memory=4g --memory-swap=5g --cpus=2 \
+  --user "$(id -u):$(id -g)" \
+  --env ELECTRON_CACHE=/tmp/sable-electron \
+  --env ELECTRON_BUILDER_CACHE=/tmp/sable-builder \
+  --env WINEPREFIX=/tmp/sable-wine \
+  --env XDG_CACHE_HOME=/tmp/sable-cache \
+  --env CSC_IDENTITY_AUTO_DISCOVERY=false \
+  --volume "$PWD:/project" --workdir /project/electron \
+  electronuserland/builder@sha256:f3a8d451994c881d0972e7b1846ee4d4fdc15eb41fc6b1f350b38cbf99ca90fe \
+  sh -c './node_modules/.bin/electron-builder \
+    --win nsis --x64 --publish never \
+    --config electron-builder.nightly.yml \
+    -c.extraMetadata.version="$(node -p "require(\"../package.json\").version")" \
+    -c.extraMetadata.autoUpdate=false'
+```
+
+This creates an unsigned Nightly installer in `electron/release`, including
+local source changes, with automatic updates disabled. The command invokes
+`electron-builder` directly because `package.mjs` also compiles the native
+modules; those have already been compiled on the host. Linux-installed
+`node_modules` can be reused inside this Linux container. The container image
+is pinned to a digest. On Linux with a systemd user session,
+wrap each build command in `systemd-run --user --scope -p MemoryMax=6G
+-p MemorySwapMax=1G env ...` to enforce a memory limit; exceeding it fails that
+build instead of allowing it to consume the host's remaining memory.
