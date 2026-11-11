@@ -112,6 +112,7 @@ test('shows ongoing calls and Explore without duplicating joined spaces', () => 
   fixture.rooms.push(
     room('!voice:example.org', 'Lounge', {
       is_direct: false,
+      room_kind: 'voice',
       call_participants: ['@bob:example.org'],
     }),
     room('!current:example.org', 'Current', { is_direct: false }),
@@ -129,6 +130,10 @@ test('shows ongoing calls and Explore without duplicating joined spaces', () => 
     'href',
     '/rooms/!voice%3Aexample.org'
   );
+  const voiceCard = within(calls).getByRole('link', { name: /Lounge/ });
+  expect(voiceCard.querySelector('.call-room-icon .room-icon-root')).not.toBeNull();
+  expect(voiceCard.querySelector('.call-room-icon .room-icon-badge.lock')).not.toBeNull();
+  expect(within(voiceCard).getByRole('list')).toBeInTheDocument();
   expect(within(calls).getByRole('link', { name: /Return to call/ })).toBeInTheDocument();
   expect(screen.queryByText('Left room')).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'All 3' })).toBeInTheDocument();

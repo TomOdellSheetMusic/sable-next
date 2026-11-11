@@ -919,6 +919,8 @@
     "contactsHint": "Find a contact by name or start a new message.",
     "showAllContacts": "Show all contacts",
     "ongoingCalls": "Ongoing calls",
+    "moreParticipants_one": "{{count}} more participant",
+    "moreParticipants_other": "{{count}} more participants",
     "returnToCall": "Return to call",
     "openCall": "Open call",
     "noOngoingCalls": "It’s quiet for now. Calls in your joined rooms will appear here.",

@@ -3,7 +3,7 @@
   import ChatCircleDotsIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
   import CompassIcon from 'phosphor-svelte/lib/CompassIcon';
   import UsersIcon from 'phosphor-svelte/lib/UsersIcon';
-  import WaveformIcon from 'phosphor-svelte/lib/WaveformIcon';
+  import SpeakerHighIcon from 'phosphor-svelte/lib/SpeakerHighIcon';
   import { hasPageMeta, usePageMeta } from '#lib/core/page-meta.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { useCallSession } from '#lib/features/call/call-session.svelte.js';
@@ -15,6 +15,10 @@
   import LinkButton from '#lib/ui/primitives/LinkButton.svelte';
   import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import PresenceDot from '#lib/ui/primitives/PresenceDot.svelte';
+  import RoomIcon from '#lib/ui/primitives/RoomIcon.svelte';
+  import { PeerProfiles } from '#lib/features/sidebar/peer-profiles.svelte.js';
+  import { claimedRoomIds } from '#lib/features/sidebar/nav-rooms.js';
+  import HomeCallParticipants from './HomeCallParticipants.svelte';
   import SettingsChangesCard from './SettingsChangesCard.svelte';
 
   const pageMeta = hasPageMeta() ? usePageMeta() : null;
@@ -24,6 +28,7 @@
 
   const core = useCoreClient();
   const roomList = useRoomList();
+  const profiles = new PeerProfiles(core);
   const presence = usePresenceStore();
   const call = useCallSession();
   let filter = $state<'online' | 'all'>('online');
@@ -31,6 +36,7 @@
   let joinedRooms = $derived(
     roomList.rooms.filter((room) => room.state === 'joined' && !room.is_tombstoned)
   );
+  let spacedRoomIds = $derived(claimedRoomIds(joinedRooms));
   let contacts = $derived(
     joinedRooms
       .filter((room) => room.is_direct && room.room_kind !== 'space')
@@ -160,25 +166,38 @@
       <section class="activity-section" aria-labelledby="calls-heading">
         <div class="section-heading">
           <h2 id="calls-heading">
-            <WaveformIcon aria-hidden="true" />{i18n.t('home.ongoingCalls')}
+            <SpeakerHighIcon aria-hidden="true" />{i18n.t('home.ongoingCalls')}
           </h2>
           <span class="total">{calls.length}</span>
         </div>
         {#each calls as room (room.room_id)}
           <!-- eslint-disable svelte/no-navigation-without-resolve -- roomSectionPath resolves routes -->
           <a class="activity-card call-card" href={roomSectionPath(roomList.rooms, room.room_id)}>
-            <Avatar src={room.display_avatar_url} name={room.display_name} id={room.room_id} />
-            <div class="contact-info">
-              <strong>{room.display_name}</strong><span
-                >{i18n.t('call.participants', { count: room.call_participants.length })}</span
-              ><span class="call-action"
-                >{i18n.t(
-                  call.active && call.roomId === room.room_id
-                    ? 'home.returnToCall'
-                    : 'home.openCall'
-                )}</span
-              >
+            <div class="call-summary">
+              {#if room.room_kind === 'voice'}
+                <span class="call-room-icon" aria-hidden="true"
+                  ><RoomIcon
+                    roomKind="voice"
+                    hasParent={spacedRoomIds.has(room.room_id)}
+                    joinRule={room.join_rule}
+                  /></span
+                >
+              {:else}
+                <Avatar src={room.display_avatar_url} name={room.display_name} id={room.room_id} />
+              {/if}
+              <div class="contact-info">
+                <strong>{room.display_name}</strong><span
+                  >{i18n.t('call.participants', { count: room.call_participants.length })}</span
+                ><span class="call-action"
+                  >{i18n.t(
+                    call.active && call.roomId === room.room_id
+                      ? 'home.returnToCall'
+                      : 'home.openCall'
+                  )}</span
+                >
+              </div>
             </div>
+            <HomeCallParticipants userIds={room.call_participants} {profiles} />
           </a>
         {:else}
           <p class="quiet-state">{i18n.t('home.noOngoingCalls')}</p>
@@ -390,6 +409,30 @@
     gap: var(--space-300);
     margin-bottom: var(--space-200);
     padding: var(--space-200);
+  }
+
+  .call-card {
+    display: grid;
+  }
+
+  .call-summary {
+    align-items: center;
+    display: flex;
+    gap: var(--space-300);
+    min-width: 0;
+  }
+
+  .call-room-icon {
+    align-items: center;
+    display: flex;
+    flex: 0 0 var(--avatar-size-400);
+    height: var(--avatar-size-400);
+    justify-content: center;
+  }
+
+  .call-room-icon :global(svg) {
+    height: var(--icon-size-medium);
+    width: var(--icon-size-medium);
   }
 
   .call-card .call-action {
