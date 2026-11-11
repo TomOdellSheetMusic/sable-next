@@ -7,8 +7,6 @@
   import { hasPageMeta, usePageMeta } from '#lib/core/page-meta.js';
   import { useCoreClient } from '#lib/core/context.js';
   import { useCallSession } from '#lib/features/call/call-session.svelte.js';
-  import { preferences } from '#lib/settings/preferences.svelte.js';
-  import { homeSpaceRows } from './home-spaces.js';
   import { i18n } from '#lib/i18n.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { usePresenceStore } from '#lib/rooms/presence.svelte.js';
@@ -61,7 +59,6 @@
         (room.call_participants.length > 0 || (call.active && call.roomId === room.room_id))
     )
   );
-  let spaces = $derived(homeSpaceRows(joinedRooms, Number(preferences.subspaceHierarchyLimit)));
 </script>
 
 <PageTitle title={i18n.t('nav.home')} />
@@ -187,30 +184,9 @@
           <p class="quiet-state">{i18n.t('home.noOngoingCalls')}</p>
         {/each}
       </section>
-      <section class="activity-section" aria-labelledby="spaces-heading">
-        <div class="section-heading">
-          <h2 id="spaces-heading"><CompassIcon aria-hidden="true" />{i18n.t('home.yourSpaces')}</h2>
-          <span class="total">{spaces.length}</span>
-        </div>
-        {#each spaces as { space, depth } (space.room_id)}
-          <!-- eslint-disable svelte/no-navigation-without-resolve -- roomSectionPath resolves routes -->
-          <a
-            class="activity-card space-card"
-            style:--space-depth={depth}
-            href={roomSectionPath(roomList.rooms, space.room_id)}
-          >
-            <Avatar src={space.display_avatar_url} name={space.display_name} id={space.room_id} />
-            <div class="contact-info">
-              <strong>{space.display_name}</strong><span>{i18n.t('home.openSpace')}</span>
-            </div>
-          </a>
-        {:else}
-          <p class="quiet-state">{i18n.t('home.spacesHint')}</p>
-        {/each}
-        <LinkButton href={resolve('explore')} variant="secondary"
-          ><CompassIcon aria-hidden="true" />{i18n.t('home.exploreSpaces')}</LinkButton
-        >
-      </section>
+      <LinkButton href={resolve('explore')} variant="secondary"
+        ><CompassIcon aria-hidden="true" />{i18n.t('home.exploreSpaces')}</LinkButton
+      >
     </aside>
   </div>
 </main>
@@ -414,10 +390,6 @@
     gap: var(--space-300);
     margin-bottom: var(--space-200);
     padding: var(--space-200);
-  }
-
-  .space-card {
-    padding-inline-start: calc(var(--space-200) + min(var(--space-depth), 4) * var(--space-200));
   }
 
   .call-card .call-action {
