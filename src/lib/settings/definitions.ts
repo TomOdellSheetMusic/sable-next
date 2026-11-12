@@ -1,3 +1,4 @@
+import { clamp } from '#lib/clamp.js';
 import type {
   MediaPreviewsView,
   PresenceView,
@@ -428,6 +429,7 @@ const SETTINGS = {
   pauseAnimationsWhenInactive: toggle(false, { account: true }),
   autoplayStickers: toggle(true, { account: true }),
   gifProvider: choice<GifProviderSetting>(['default', 'klipy', 'tenor', 'giphy'], 'default'),
+  reuploadGifs: toggle(false, { account: true }),
   urlPreviews: toggle(false, { account: true, perAccount: true }),
   themeFileCards: toggle(true, { account: true }),
   encryptedUrlPreviews: toggle(false, { perAccount: true }),
@@ -619,7 +621,7 @@ export function sanitize(stored: Record<string, unknown>, base: Preferences): Pr
         break;
       case 'number':
         if (typeof value === 'number' && Number.isFinite(value))
-          next[key] = Math.min(setting.max, Math.max(setting.min, value));
+          next[key] = clamp(value, setting.min, setting.max);
         break;
       case 'text':
         if (typeof value === 'string') next[key] = value;

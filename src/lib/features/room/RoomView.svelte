@@ -142,7 +142,6 @@
     void roomId;
     return eventId === null;
   });
-  let timelineFollowingLive = $state<boolean>(false);
 
   const callSupport = new RoomCallSupport(core, () => resolvedRoomId);
 
@@ -446,7 +445,6 @@
 
   // Returning to live drops the anchor from the URL.
   /** The `?event=` the effect below has handed to the timeline. */
-  let appliedEventId: string | null = null;
   let openedRoomId: string | null = null;
   let timelineRoomId = $derived(resolvedRoom?.room_id);
   let roomHasUnread = $derived(
@@ -456,24 +454,19 @@
   );
 
   $effect(() => {
-    // A jump restarts the timeline asynchronously, so wait for the target to be applied.
-    if (eventId === null || eventId !== appliedEventId) return;
-    if (resolvedPermalink === null || resolvedPermalink.rootEventId !== null) return;
-    if (!timelineFollowingLive || timeline.mode.kind !== 'live') return;
-    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
-    void goto(roomUrl(null), { replace: true, reset: false });
-  });
-
-  $effect(() => {
     const activeRoomId = timelineRoomId;
     if (!activeRoomId) return;
     const targetEventId = timelineEventId;
-    const anchor = untrack(() => {
-      // A loaded event is reached by scrolling, but only while live.
-      const loaded = timeline.items.some((item) => item.event_id === targetEventId);
-      return loaded && timeline.mode.kind === 'live' ? null : targetEventId;
-    });
-    appliedEventId = eventId;
+    // Read outside `untrack`: the toggle only takes effect by re-subscribing.
+    const hiddenEvents = preferences.showHiddenEvents;
+    const serving = untrack(() => timeline.serves(activeRoomId, hiddenEvents));
+    // A jump inside the open room waits to learn whether its target sits in a thread.
+    if (serving && eventId !== null && resolvedPermalink === null) return;
+    // A loaded event is reached by scrolling, in whichever context holds it.
+    const loaded =
+      serving &&
+      targetEventId !== null &&
+      untrack(() => timeline.items.some((item) => item.event_id === targetEventId));
     const openAtUnread = untrack(() => {
       if (openedRoomId === activeRoomId) return false;
       openedRoomId = activeRoomId;
@@ -484,18 +477,18 @@
         preferences.openRoomsAtUnread
       );
     });
-    // Read outside `untrack`: the toggle only takes effect by re-subscribing.
-    const hiddenEvents = preferences.showHiddenEvents;
-    void untrack(() =>
-      activeTimeline.start(
-        timelineOwner,
-        activeRoomId,
-        anchor,
-        hiddenEvents,
-        openAtUnread,
-        landingEventId
-      )
-    );
+    if (!loaded) {
+      void untrack(() =>
+        activeTimeline.start(
+          timelineOwner,
+          activeRoomId,
+          targetEventId,
+          hiddenEvents,
+          openAtUnread,
+          landingEventId
+        )
+      );
+    }
     void untrack(() => loadMembers());
   });
 
@@ -595,16 +588,11 @@
   }
 
   function copyEventLink(eventId: string): void {
-    void writeEventLink(eventId);
-  }
-
-  async function writeEventLink(eventId: string): Promise<void> {
     const room = {
       room_id: resolvedRoomId,
       canonical_alias: resolvedRoom?.canonical_alias ?? null,
     };
-    if (!(await copyRoomLink(core, room, eventId))) toasts.error(i18n.t('errors.copyFailed'));
-    else toasts.info(i18n.t('timeline.linkCopied'));
+    void copyRoomLink(core, room, eventId);
   }
 
   function memberDisplayName(userId: string): string | null {
@@ -622,6 +610,12 @@
   function landed(): void {
     if (notifiedEventId === null) return;
     void setPageState({ ...page.state, notified: undefined }, true);
+  }
+
+  function returnedToLatest(): void {
+    if (eventId === null || panels.threadRootId !== null) return;
+    // eslint-disable-next-line svelte/no-navigation-without-resolve -- rewrites the query of the current, already resolved URL
+    void goto(roomUrl(null), { replace: true, reset: false });
   }
 
   function jumpToLive(): void {
@@ -801,6 +795,7 @@
       focusEventId={timelineEventId}
       {landingEventId}
       onLanded={landed}
+      onReturnedToLatest={returnedToLatest}
       onRequestHistory={requestHistory}
       onRequestFuture={requestFuture}
       onRead={markRead}
@@ -844,7 +839,6 @@
       {typingUsers}
       footTrailingVisible={showReceiptFooter && timelineAtBottom && latestReadBy.length > 0}
       bind:nearLatest={timelineAtBottom}
-      bind:followingLive={timelineFollowingLive}
       timelineStart={roomSession.predecessor ? predecessorNotice : undefined}
     >
       {#snippet footTrailing()}

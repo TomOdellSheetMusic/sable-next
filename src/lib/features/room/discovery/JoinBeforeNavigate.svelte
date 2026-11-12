@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { serverNameOf } from '#lib/matrix-id.js';
   import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
   import { goto } from '$app/navigation';
   import { untrack } from 'svelte';
@@ -8,7 +9,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { joinRoom, knockRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
-  import { CoreError } from '#src/transport';
+  import { isCoreError } from '#src/transport';
   import { bannedMessage } from '#lib/rooms/join-errors.js';
   import { joinVia, roomSectionPath } from '#lib/rooms/permalink.js';
   import { useRoomList } from '#lib/rooms/room-list.svelte.js';
@@ -58,7 +59,7 @@
   const reasonId = $props.id();
 
   let title = $derived(preview?.name ?? roomId);
-  let localServer = $derived(core.session?.user_id.split(':').slice(1).join(':') ?? null);
+  let localServer = $derived(core.session ? serverNameOf(core.session.user_id) : null);
 
   $effect(() => {
     const address = roomId;
@@ -136,7 +137,7 @@
       await goto(target, { replace: true });
     } catch (error) {
       console.warn('[sable room] join failed', error);
-      if (error instanceof CoreError && error.detail.code === 'banned') {
+      if (isCoreError(error, 'banned')) {
         banReason = error.detail.reason;
         joinBanned = true;
       } else {
