@@ -76,7 +76,7 @@ fn deep_history_is_tried_first_and_failures_move_to_the_next_device() {
         tried(state.next(Some("s1"), "s2".into(), now)),
         Some("DEEP".into())
     );
-    state.rooms = 2;
+    state.transferred_rooms = 2;
     assert_eq!(
         tried(state.next(Some("s2"), "s3".into(), now)),
         Some("SMALL".into())
@@ -423,7 +423,7 @@ async fn the_automatic_copy_runs_once_and_a_failed_start_does_not_count() {
         Box::new(crate::store::MemorySessionStore::default()),
     );
     core.search_sharing.enabled.store(true, Ordering::Relaxed);
-    core.search_foreground.store(true, Ordering::Relaxed);
+    core.app_in_foreground.store(true, Ordering::Relaxed);
     core.update_network_conditions(true, true).await;
     core.start_search_peers().await.unwrap_err();
     core.start_search_peers().await.unwrap_err();
@@ -493,13 +493,6 @@ async fn returning_conditions_tell_the_page_that_peers_may_resume() {
         shown_pauses(&mut events),
         [Some(SearchPeerPause::Offline), None]
     );
-
-    core.update_app_in_foreground(false);
-    core.update_app_in_foreground(true);
-    assert_eq!(
-        shown_pauses(&mut events),
-        [Some(SearchPeerPause::Background), None]
-    );
 }
 
 async fn live_core(
@@ -508,7 +501,7 @@ async fn live_core(
 ) -> (Arc<Core>, tokio::sync::mpsc::UnboundedReceiver<CoreEvent>) {
     let (core, events) = Core::new(name, Box::new(crate::store::MemorySessionStore::default()));
     core.search_sharing.enabled.store(true, Ordering::Relaxed);
-    core.search_foreground.store(true, Ordering::Relaxed);
+    core.app_in_foreground.store(true, Ordering::Relaxed);
     *core.session.write().await = Some(crate::session::Session {
         account_id: name.into(),
         client: client.clone(),
@@ -600,7 +593,7 @@ fn reopen(source: &Core, target: &Core, id: &str, devices: [&Client; 2]) {
     target.search_sharing.state.lock().phase = Phase::Receiving(Session::new(
         id.into(),
         source_device,
-        Transfer::Receiving(Download::default()),
+        Transfer::Receiving(ReceiverState::new(0)),
         now,
     ));
 }
@@ -618,7 +611,7 @@ async fn exchange(source: &Core, target: &Core, id: &str) -> usize {
     while let Some((to_target, frame)) = frames.pop_front() {
         if matches!(
             rmp_serde::from_slice(&frame),
-            Ok(transfer::Message::Data { .. })
+            Ok(transfer::Message::PartData(_))
         ) {
             payloads += 1;
         }
@@ -691,7 +684,7 @@ async fn verified_devices_copy_history_and_changes() {
     assert_eq!(needles(&target, &room).await, 30);
     assert!(target.search_crawl.lock().await.cover_of(&room).is_some());
     let view = target.search_sharing_view();
-    assert_eq!(view.rooms_copied, 1);
+    assert_eq!(view.transferred_rooms, 1);
     assert_eq!(view.state, SearchPeerState::Idle);
     assert_eq!(view.outcome, Some(SearchPeerOutcome::Completed));
     assert_eq!(view.last_copy.map(|copy| copy.rooms), Some(1));
@@ -753,7 +746,7 @@ async fn verified_devices_copy_history_and_changes() {
 
     target.forget_search_sharing(&reader).await;
     let view = target.search_sharing_view();
-    assert_eq!(view.rooms_copied, 0);
+    assert_eq!(view.transferred_rooms, 0);
     assert!(view.last_copy.is_none());
     assert!(view.automatic);
     target.search_sharing.state.lock().saved = None;

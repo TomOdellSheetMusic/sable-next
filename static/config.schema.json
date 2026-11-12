@@ -277,6 +277,7 @@
             "system",
             "ar",
             "bg",
+            "ca",
             "cs",
             "de",
             "en",
@@ -641,6 +642,11 @@
           "title": "Show today’s events in spaces",
           "type": "boolean",
           "default": true
+        },
+        "showAlertZoo": {
+          "title": "Show alert zoo",
+          "type": "boolean",
+          "default": false
         },
         "hour24Clock": {
           "title": "24-hour clock",
@@ -1087,6 +1093,7 @@
           "enum": [
             "online",
             "unavailable",
+            "busy",
             "offline"
           ],
           "default": "online"
@@ -1720,6 +1727,7 @@
             "system",
             "ar",
             "bg",
+            "ca",
             "cs",
             "de",
             "en",
@@ -2084,6 +2092,11 @@
           "title": "Show today’s events in spaces",
           "type": "boolean",
           "default": true
+        },
+        "showAlertZoo": {
+          "title": "Show alert zoo",
+          "type": "boolean",
+          "default": false
         },
         "hour24Clock": {
           "title": "24-hour clock",
@@ -2530,6 +2543,7 @@
           "enum": [
             "online",
             "unavailable",
+            "busy",
             "offline"
           ],
           "default": "online"

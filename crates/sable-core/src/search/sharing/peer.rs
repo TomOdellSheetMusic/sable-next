@@ -20,7 +20,7 @@ use web_time::Instant;
 
 use crate::Core;
 use crate::protocol::{
-    CoreEvent, RpcError, RtcSignal, SearchPeerCandidateStatus, SearchPeerCandidateView,
+    CoreEvent, RpcCode, RpcError, RtcSignal, SearchPeerCandidateStatus, SearchPeerCandidateView,
     SearchPeerCopyView, SearchPeerDeviceView, SearchPeerOutcome, SearchPeerPause, SearchPeerState,
     SearchSharingView,
 };
@@ -30,7 +30,7 @@ use crate::search::now_ms;
 
 mod transfer;
 
-use transfer::{Download, Saved, Transfer};
+use transfer::{ReceiverState, Saved, Transfer};
 
 const MAX_ASKED: usize = 32;
 const SESSION_TIMEOUT: Duration = Duration::from_secs(120);
@@ -181,7 +181,8 @@ struct State {
     /// devices with more are copied from.
     own: (u64, u64),
     outcome: Option<SearchPeerOutcome>,
-    rooms: usize,
+    transferred_rooms: usize,
+    total_rooms: usize,
     /// Loaded from the store on first use.
     saved: Option<Saved>,
     /// Bumped when `saved` is wiped, so a copy that started before does not
@@ -207,7 +208,8 @@ impl State {
         self.asked.clear();
         self.candidates.clear();
         self.outcome = None;
-        self.rooms = 0;
+        self.transferred_rooms = 0;
+        self.total_rooms = 0;
         true
     }
 
@@ -303,7 +305,7 @@ impl State {
                 .all(|candidate| candidate.documents == 0 || candidate.score() <= own)
             {
                 SearchPeerOutcome::NothingToCopy
-            } else if self.rooms > 0 {
+            } else if self.transferred_rooms > 0 {
                 SearchPeerOutcome::Interrupted
             } else {
                 SearchPeerOutcome::Failed
@@ -323,7 +325,7 @@ impl State {
             session: Session::new(
                 session,
                 device.clone(),
-                Transfer::Receiving(Download::default()),
+                Transfer::Receiving(ReceiverState::new(self.epoch)),
                 now,
             ),
             until: now + CONNECT_TIMEOUT,
@@ -400,8 +402,6 @@ impl Core {
             Some(SearchPeerPause::Offline)
         } else if !self.search_network.allows_crawl() {
             Some(SearchPeerPause::Metered)
-        } else if !self.search_foreground.load(Ordering::Relaxed) {
-            Some(SearchPeerPause::Background)
         } else {
             None
         }
@@ -455,7 +455,8 @@ impl Core {
                 device_id: device.to_string(),
                 name: state.name_of(device),
             }),
-            rooms_copied: state.rooms,
+            transferred_rooms: state.transferred_rooms,
+            total_rooms: state.total_rooms,
             last_copy: state
                 .saved
                 .as_ref()
@@ -476,9 +477,15 @@ impl Core {
         }
     }
 
-    pub(crate) fn refresh_search_peers(&self) {
+    pub(crate) async fn refresh_search_peers(&self) {
         if self.search_peer_pause().is_some() {
             self.cancel_search_peers();
+        } else if self.app_in_foreground.load(Ordering::Relaxed) && {
+            let state = self.search_sharing.state.lock();
+            matches!(state.phase, Phase::Idle)
+                && state.outcome == Some(SearchPeerOutcome::Interrupted)
+        } {
+            let _ = self.find_search_peers().await;
         } else {
             self.update_sharing(|_| {});
         }
@@ -736,7 +743,7 @@ impl Core {
 
     pub(crate) async fn find_search_peers(&self) -> Result<(), RpcError> {
         if !self.peers_allowed() {
-            return Err(RpcError::Unavailable);
+            return Err(RpcCode::Unavailable.into());
         }
         self.update_sharing(|state| state.available = true);
         let client = self.client().await?;
@@ -744,7 +751,7 @@ impl Core {
     }
 
     async fn discover_search_peers(&self, client: &Client) -> Result<(), RpcError> {
-        let query = session_id().ok_or(RpcError::Unavailable)?;
+        let query = session_id().ok_or(RpcCode::Unavailable)?;
         if !self.update_sharing(|state| state.begin(query.clone(), Instant::now())) {
             return Ok(());
         }
@@ -869,7 +876,7 @@ impl Core {
                 device_id: device.to_string(),
                 name: state.name_of(&device),
                 at_ms: now_ms(),
-                rooms: state.rooms,
+                rooms: state.transferred_rooms,
             })
         });
         let Some(copy) = copy else { return };
@@ -889,7 +896,7 @@ impl Core {
     ) -> Result<Arc<tokio::sync::Mutex<Transfer>>, RpcError> {
         if !self.peers_allowed() {
             self.cancel_search_peers();
-            return Err(RpcError::Unavailable);
+            return Err(RpcCode::Unavailable.into());
         }
         let now = Instant::now();
         let (device, transfer) = self
@@ -902,8 +909,8 @@ impl Core {
                 session.touched = now;
                 Some((session.device.clone(), session.transfer.clone()))
             })
-            .ok_or(RpcError::Unavailable)?;
-        let user = client.user_id().ok_or(RpcError::NotLoggedIn)?;
+            .ok_or(RpcCode::Unavailable)?;
+        let user = client.user_id().ok_or(RpcCode::NotLoggedIn)?;
         if !client
             .encryption()
             .get_device(user, &device)
@@ -912,7 +919,7 @@ impl Core {
             .flatten()
             .is_some_and(|device| device.is_verified())
         {
-            return Err(RpcError::Unavailable);
+            return Err(RpcCode::Unavailable.into());
         }
         Ok(transfer)
     }
@@ -957,12 +964,14 @@ fn session_id() -> Option<String> {
 }
 
 async fn query_targets(client: &Client) -> Result<Vec<Device>, RpcError> {
-    let own = client.user_id().ok_or(RpcError::NotLoggedIn)?;
+    let own = client.user_id().ok_or(RpcCode::NotLoggedIn)?;
     let devices = client
         .encryption()
         .get_user_devices(own)
         .await
-        .map_err(|_| RpcError::Unavailable)?;
+        .map_err(|error| {
+            crate::errors::coded("search_peer_devices", RpcCode::Unavailable, &error)
+        })?;
     let seen: Option<HashMap<OwnedDeviceId, Option<u64>>> =
         client.devices().await.ok().map(|response| {
             response
@@ -1001,7 +1010,7 @@ async fn broadcast(
     content: &ToDeviceSearchPeerEventContent,
 ) -> Result<(), RpcError> {
     let raw: Raw<AnyToDeviceEventContent> = Raw::new(content)
-        .map_err(|_| RpcError::Unavailable)?
+        .map_err(|error| crate::errors::coded("search_peer_content", RpcCode::Unavailable, &error))?
         .cast_unchecked();
     client
         .encryption()
@@ -1013,7 +1022,7 @@ async fn broadcast(
         )
         .await
         .map(|_| ())
-        .map_err(|_| RpcError::Unavailable)
+        .map_err(|error| crate::errors::coded("search_peer_send", RpcCode::Unavailable, &error))
 }
 
 async fn send_discovery(
@@ -1025,7 +1034,7 @@ async fn send_discovery(
     let content = ToDeviceSearchPeerEventContent::new(session.to_owned(), kind);
     sable_frostbite::send(client, device, &content)
         .await
-        .map_err(|_| RpcError::Unavailable)
+        .map_err(|_| RpcCode::Unavailable.into())
 }
 
 #[cfg(test)]

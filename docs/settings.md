@@ -12,7 +12,7 @@ except those marked deployment only.
 
 ## Appearance
 
-- `language` (Language): One of `system`, `ar`, `bg`, `cs`, `de`, `en`, `es`, `fi`, `fr`, `hu`, `it`, `mi`, `nl`, `pl`, `pt`, `pt-BR`, `ro`, `ru`, `th`, `tok`, `tr`, `uk`, `zh-Hans`. Default `system`.
+- `language` (Language): One of `system`, `ar`, `bg`, `ca`, `cs`, `de`, `en`, `es`, `fi`, `fr`, `hu`, `it`, `mi`, `nl`, `pl`, `pt`, `pt-BR`, `ro`, `ru`, `th`, `tok`, `tr`, `uk`, `zh-Hans`. Default `system`.
 - `theme` (Light or dark): One of `system`, `dark`, `light`. Default `system`.
 - `underlineLinks` (Always underline links): `true` or `false`. Default `true`.
 - `renderRoomColors` (Use room colours instead of profile colours): `true` or `false`. Default `true`.
@@ -98,6 +98,7 @@ except those marked deployment only.
 ## Developer
 
 - `coreLogLevel` (Core console log level): One of `default`, `debug`. Default `default`. Deployment only.
+- `showAlertZoo` (Show alert zoo): `true` or `false`. Default `false`. Deployment only.
 - `developerTools` (Enable developer tools): `true` or `false`. Default `false`. Deployment only.
 - `callStatsOverlay` (Show screen share statistics in calls): `true` or `false`. Default `false`. Deployment only.
 - `callDebugOverlay` (Show call debug information in calls): `true` or `false`. Default `true`. Deployment only.
@@ -244,7 +245,7 @@ except those marked deployment only.
 - `composerButtonOrder`: List of `gif`, `sticker`, `emoticon`, `persona`, `format`, `separator:0`, `separator:1`, `separator:2`, `separator:3`, `separator:4`, `separator:5`, `separator:6`, `separator:7`, `separator:8`. Default `["gif","sticker","emoticon","separator:0","persona","format"]`.
 - `personaGrid`: `true` or `false`. Default `true`.
 - `personaAlternateAvatar`: `true` or `false`. Default `false`.
-- `presence`: One of `online`, `unavailable`, `offline`. Default `online`. Deployment only.
+- `presence`: One of `online`, `unavailable`, `busy`, `offline`. Default `online`. Deployment only.
 - `presenceStatusMessage`: Text. Default empty. Deployment only.
 - `loadingAnimal`: Text. Default empty.
 - `badgeDefaultDirect`: One of `all`, `mentions`, `quiet`. Default `all`.

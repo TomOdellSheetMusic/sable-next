@@ -6,7 +6,7 @@
   import MediaImage from '#lib/ui/MediaImage.svelte';
   import { preferences } from '#lib/settings/preferences.svelte.js';
 
-  import { GIF_PLAYBACK, hasPreviewData, imageMimeFromUrl } from './link-preview.js';
+  import { GIF_PLAYBACK, hasPreviewData, imageMimeFromUrl, isGifHostUrl } from './link-preview.js';
   import { previewSources, resolveUrlPreview } from './link-preview-cache';
   import { findLinkPresentation } from './link-presentations';
   import { hasRoomMediaPreviews, useRoomMediaPreviews } from './room-media-previews.svelte.js';
@@ -52,21 +52,25 @@
 
   let shown = $derived(preview ? [preview] : []);
   let title = $derived(preview?.title ?? preview?.site_name ?? url);
+  let gif = $derived(
+    preview?.video?.gif === true || preview?.image_mime === 'image/gif' || isGifHostUrl(url)
+  );
   let compactImage = $derived(
-    preview?.card === 'summary'
-      ? true
-      : preview?.card === 'summary_large_image'
-        ? false
-        : preview?.image_width != null &&
-          preview.image_height != null &&
-          preview.image_width > 0 &&
-          preview.image_width <= preview.image_height
+    !gif &&
+      (preview?.card === 'summary'
+        ? true
+        : preview?.card === 'summary_large_image'
+          ? false
+          : preview?.image_width != null &&
+            preview.image_height != null &&
+            preview.image_width > 0 &&
+            preview.image_width <= preview.image_height)
   );
   const roomMedia = hasRoomMediaPreviews() ? useRoomMediaPreviews() : null;
   let mediaHidden = $derived(roomMedia?.hidden ?? false);
   let Presentation = $derived(preview && findLinkPresentation(url, preview));
   let videoPlayback = $derived.by(() => {
-    if (!preview?.video?.gif && preview?.image_mime !== 'image/gif') return null;
+    if (!gif) return null;
     return preferences.autoplayGifs
       ? GIF_PLAYBACK
       : { ...GIF_PLAYBACK, gif: false, autoplay: false };
@@ -116,6 +120,7 @@
       intrinsicWidth={view.image_width}
       intrinsicHeight={view.image_height}
       mime={view.image_mime ?? imageMimeFromUrl(url)}
+      animatedHint={gif || null}
       bind:spoilerHidden={imageHidden}
       href={url}
       onclick={openPreviewImage}
@@ -150,6 +155,8 @@
           height={compactImage ? 80 : 225}
           intrinsicWidth={view.image_width}
           intrinsicHeight={view.image_height}
+          mime={view.image_mime ?? imageMimeFromUrl(url)}
+          animatedHint={gif || null}
           bind:spoilerHidden={imageHidden}
           href={url}
           onclick={openPreviewImage}

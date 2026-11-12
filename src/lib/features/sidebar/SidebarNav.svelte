@@ -10,7 +10,7 @@
   import { useCallSession } from '#lib/features/call/call-session.svelte.js';
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { findRoomByPathId, useRoomList } from '#lib/rooms/room-list.svelte.js';
-  import { addUnread, spacesContainingRoom } from '#lib/rooms/spaces.js';
+  import { addUnread, spacesContaining, spacesContainingRoom } from '#lib/rooms/spaces.js';
   import { hasUnread, NO_UNREAD } from '#lib/rooms/unread.js';
   import {
     applyDrop,
@@ -37,6 +37,7 @@
   import UserQuickTools from './UserQuickTools.svelte';
   import { isActiveSpace, markRoomsRead } from './nav-rooms.js';
   import CoreHealthBanner from '#lib/ui/CoreHealthBanner.svelte';
+  import AlertDrawer from './AlertDrawer.svelte';
 
   interface Props {
     mobile?: boolean;
@@ -114,6 +115,13 @@
   );
   let callSpaces = $derived(
     call.active ? spacesContainingRoom(spaces, roomList.rooms, call.roomId) : new Set<string>()
+  );
+  let voiceSpaces = $derived(
+    spacesContaining(
+      spaces,
+      roomList.rooms,
+      (room) => room.state === 'joined' && room.call_participants.length > 0
+    )
   );
   let entries = $derived(mergeSpaces(spaceSidebar.items, orderedSpaceIds));
   let homeUnread = $derived(roomList.section('home')?.unread ?? NO_UNREAD);
@@ -270,6 +278,7 @@
           {spaces}
           {spaceUnread}
           {callSpaces}
+          {voiceSpaces}
           {homeUnread}
           {unspacedUnread}
           {directRooms}
@@ -299,6 +308,7 @@
           {spaces}
           {spaceUnread}
           {callSpaces}
+          {voiceSpaces}
           {homeUnread}
           {unspacedUnread}
           {directRooms}
@@ -326,6 +336,9 @@
           onResize={(next) => (roomNavWidth = clampRoomNavWidth(next))}
           onCommit={persistRoomNavWidth}
         />
+        {#if !collapsed}
+          <AlertDrawer />
+        {/if}
       </div>
       {@render callBar()}
       {#if !collapsed}
@@ -361,6 +374,7 @@
     display: flex;
     flex: 1;
     min-height: 0;
+    position: relative;
   }
 
   .mobile-navigation,

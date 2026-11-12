@@ -13,6 +13,7 @@ import {
   matrixToUrl,
   permalinkTarget,
   roomSectionPath,
+  setSidebarSpaceOrder,
   viaFor,
 } from './permalink';
 
@@ -412,4 +413,27 @@ test('chat links reuse joined DMs and ask before replacing left or tombstoned DM
       '@alice:example.org'
     )
   ).toBeNull();
+});
+
+test('a room under several spaces lands under the one highest in the sidebar', () => {
+  const rooms = [
+    room('!archive:example.org', {
+      room_kind: 'space',
+      space_children: [child('!inner:example.org')],
+    }),
+    room('!main:example.org', { room_kind: 'space', space_children: [child('!sub:example.org')] }),
+    room('!sub:example.org', { room_kind: 'space', space_children: [child('!inner:example.org')] }),
+    room('!inner:example.org'),
+  ];
+  const order = ['!main:example.org', '!archive:example.org'];
+
+  setSidebarSpaceOrder(order);
+  expect(roomSectionPath(rooms, '!inner:example.org')).toBe(
+    '/space/!main%3Aexample.org/!inner%3Aexample.org'
+  );
+  setSidebarSpaceOrder(order.toReversed());
+  expect(roomSectionPath(rooms, '!inner:example.org')).toBe(
+    '/space/!archive%3Aexample.org/!inner%3Aexample.org'
+  );
+  setSidebarSpaceOrder([]);
 });

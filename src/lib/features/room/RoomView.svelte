@@ -75,7 +75,7 @@
   import { eventBefore } from './timeline/timeline-format';
   import { RoomSession } from './room-session.svelte.js';
   import { MemberProfile } from './members/member-profile.svelte.js';
-  import { RoomPanels } from './room-panels.svelte.js';
+  import { RoomPanels, useOpenRoomSearch } from './room-panels.svelte.js';
   import { TombstoneJoin } from './room-tombstone-join.svelte.js';
   import RoomCallStage from './RoomCallStage.svelte';
   import RoomVoiceChat from './RoomVoiceChat.svelte';
@@ -95,6 +95,7 @@
   let { roomId, eventId = null, notifiedEventId = null, room }: Props = $props();
   const core = useCoreClient();
   const panels = new RoomPanels();
+  const openRoomSearch = useOpenRoomSearch();
   const memberProfile = new MemberProfile(core);
   onDestroy(() => memberProfile.close());
   trackRoomEntry();
@@ -158,7 +159,7 @@
   const pinnedEvents = new PinnedEvents(core.rpc.timeline);
   const roomSession = new RoomSession(core.rpc, pinnedEvents);
   providePinnedEvents(pinnedEvents);
-  providePanelStage();
+  providePanelStage(() => panels.swapped);
   onDestroy(() => roomSession.dispose());
   const tombstoneJoin = new TombstoneJoin(
     core.rpc,
@@ -673,8 +674,10 @@
   }
 
   function markUnreadFrom(eventId: string): void {
+    const readMarker = eventBefore(timeline.items, eventId);
+    timelineList?.markUnreadFrom(eventId, readMarker);
     void core.rpc.timeline
-      .markUnread({ room_id: resolvedRoomId, read_marker: eventBefore(timeline.items, eventId) })
+      .markUnread({ room_id: resolvedRoomId, read_marker: readMarker })
       .catch((error: unknown) => {
         console.warn('[sable room] mark as unread failed', error);
         toasts.error(i18n.t('errors.actionFailed'));
@@ -741,6 +744,13 @@
     }
     panels.toggleSearch();
   }
+
+  $effect(() =>
+    openRoomSearch.register(() => {
+      if (!desktop) searchInRoom(resolvedRoom, resolvedRoomId);
+      else if (!panels.searchOpen) panels.toggleSearch();
+    })
+  );
 
   function openPredecessor(): void {
     if (!roomSession.predecessor) return;
@@ -899,88 +909,93 @@
   </div>
 {/snippet}
 
+{#snippet roomHeader()}
+  {#snippet headerActions()}
+    <RoomHeaderActions
+      {panels}
+      {voiceView}
+      direct={resolvedRoom?.is_direct ?? false}
+      {desktop}
+      widgetCount={roomSession.widgets.length}
+      {canManageWidgets}
+    />
+  {/snippet}
+  <RoomHeader
+    roomId={resolvedRoomId}
+    {roomName}
+    {roomAvatar}
+    topic={roomTopic}
+    encrypted={resolvedRoom?.encrypted ?? null}
+    presence={dmPresence?.presence ?? null}
+    isVoice={resolvedRoom?.room_kind === 'voice'}
+    callParticipants={resolvedRoom?.call_participants ?? []}
+    members={memberLoader.members}
+    membersOpen={desktop ? panels.desktopMembersOpen : panels.membersOpen}
+    searchOpen={panels.searchOpen}
+    onCall={callOffered && !isVoiceRoom ? startCall : null}
+    onToggleChat={isVoiceRoom ? () => (voiceChat.open = !voiceChat.open) : null}
+    chatOpen={voiceChat.open}
+    chatBeside={desktop}
+    onBack={backToRoomList}
+    onMembers={toggleMembers}
+    onSearch={openSearch}
+    onTopic={() => (topicOpen = true)}
+    {phone}
+    actions={headerActions}
+  >
+    {#snippet pins()}
+      <RoomPinMenu
+        bind:open={pinsOpen}
+        onUnread={(count) => (pinsUnread = count)}
+        triggerHidden={phone}
+        roomId={resolvedRoomId}
+        revision={pinRevision}
+        members={memberLoader.members}
+        canPin={roomSession.permissions?.can_pin ?? false}
+        onJump={jumpToEvent}
+      />
+    {/snippet}
+    {#snippet menu()}
+      <RoomHeaderMenu
+        room={resolvedRoom ?? null}
+        canInvite={roomSession.permissions?.can_invite ?? false}
+        compact={!desktop}
+        onMarkRead={markRoomRead}
+        onMarkUnread={markRoomUnread}
+        onInvite={() => (inviteOpen = true)}
+        onMembers={toggleMembers}
+        onSettings={() => (settingsOpen = true)}
+        onJumpToTime={() => (jumpOpen = true)}
+        onClose={desktop ? backToRoomList : undefined}
+        onAttachments={voiceView ? undefined : toggleAttachments}
+        onThreads={phone && !voiceView ? toggleThreads : undefined}
+        onNotifications={phone && !voiceView && !resolvedRoom?.is_direct
+          ? () => panels.toggleNotifications()
+          : undefined}
+        onPins={phone ? () => (pinsOpen = true) : undefined}
+        {pinsUnread}
+        onWidgets={phone && (roomSession.widgets.length > 0 || canManageWidgets)
+          ? toggleWidgets
+          : undefined}
+        onReport={() => (reportOpen = true)}
+        onLeave={() => (leaveOpen = true)}
+      />
+    {/snippet}
+  </RoomHeader>
+{/snippet}
+
 <main
   class="room-view"
   aria-label={i18n.t('timeline.label')}
   data-inset-owner={voiceView ? 'top' : 'top bottom'}
 >
+  {#if desktop}{@render roomHeader()}{/if}
   <div
     class={['timeline', { 'thread-covered': panels.threadRootId !== null && !threadInPanel }]}
     inert={panels.threadRootId !== null && !threadInPanel}
     bind:clientHeight={timelineHeight}
   >
-    {#snippet headerActions()}
-      <RoomHeaderActions
-        {panels}
-        {voiceView}
-        direct={resolvedRoom?.is_direct ?? false}
-        {desktop}
-        widgetCount={roomSession.widgets.length}
-        {canManageWidgets}
-      />
-    {/snippet}
-    <RoomHeader
-      roomId={resolvedRoomId}
-      {roomName}
-      {roomAvatar}
-      topic={roomTopic}
-      encrypted={resolvedRoom?.encrypted ?? null}
-      presence={dmPresence?.presence ?? null}
-      isVoice={resolvedRoom?.room_kind === 'voice'}
-      callParticipants={resolvedRoom?.call_participants ?? []}
-      members={memberLoader.members}
-      membersOpen={desktop ? panels.desktopMembersOpen : panels.membersOpen}
-      searchOpen={panels.searchOpen}
-      onCall={callOffered && !isVoiceRoom ? startCall : null}
-      onToggleChat={isVoiceRoom ? () => (voiceChat.open = !voiceChat.open) : null}
-      chatOpen={voiceChat.open}
-      chatBeside={desktop}
-      onBack={backToRoomList}
-      onMembers={toggleMembers}
-      onSearch={openSearch}
-      onTopic={() => (topicOpen = true)}
-      {phone}
-      actions={headerActions}
-    >
-      {#snippet pins()}
-        <RoomPinMenu
-          bind:open={pinsOpen}
-          onUnread={(count) => (pinsUnread = count)}
-          triggerHidden={phone}
-          roomId={resolvedRoomId}
-          revision={pinRevision}
-          members={memberLoader.members}
-          canPin={roomSession.permissions?.can_pin ?? false}
-          onJump={jumpToEvent}
-        />
-      {/snippet}
-      {#snippet menu()}
-        <RoomHeaderMenu
-          room={resolvedRoom ?? null}
-          canInvite={roomSession.permissions?.can_invite ?? false}
-          compact={!desktop}
-          onMarkRead={markRoomRead}
-          onMarkUnread={markRoomUnread}
-          onInvite={() => (inviteOpen = true)}
-          onMembers={toggleMembers}
-          onSettings={() => (settingsOpen = true)}
-          onJumpToTime={() => (jumpOpen = true)}
-          onClose={desktop ? backToRoomList : undefined}
-          onAttachments={voiceView ? undefined : toggleAttachments}
-          onThreads={phone && !voiceView ? toggleThreads : undefined}
-          onNotifications={phone && !voiceView && !resolvedRoom?.is_direct
-            ? () => panels.toggleNotifications()
-            : undefined}
-          onPins={phone ? () => (pinsOpen = true) : undefined}
-          {pinsUnread}
-          onWidgets={phone && (roomSession.widgets.length > 0 || canManageWidgets)
-            ? toggleWidgets
-            : undefined}
-          onReport={() => (reportOpen = true)}
-          onLeave={() => (leaveOpen = true)}
-        />
-      {/snippet}
-    </RoomHeader>
+    {#if !desktop}{@render roomHeader()}{/if}
     {#if callShown && (voiceView || !isVoiceRoom)}
       <RoomCallStage
         docked={!voiceView}
@@ -1145,16 +1160,33 @@
 
   @media (--app-layout) {
     .room-view {
+      container-type: inline-size;
+      display: grid;
+      grid-auto-columns: auto;
+      grid-auto-flow: column;
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: auto minmax(0, 1fr);
       overflow-x: clip;
     }
 
+    /* `-1` would stop at the one explicit column, before the side panels. */
+    .room-view > :global(.room-header) {
+      grid-column: 1 / span 8;
+      grid-row: 1;
+    }
+
+    .room-view > :global(:not(.room-header)) {
+      grid-row: 2;
+    }
+
     .timeline {
-      min-width: min(var(--room-column-min-width), 100% - var(--side-panel-min-width));
+      height: auto;
+      min-width: min(var(--room-column-min-width), 100cqi - var(--side-panel-min-width));
     }
 
     .room-view.room-view > :global(aside) {
       flex-shrink: 1;
-      max-width: calc(100% - var(--room-column-min-width));
+      max-width: calc(100cqi - var(--room-column-min-width));
       min-width: var(--side-panel-min-width);
     }
 

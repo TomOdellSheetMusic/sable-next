@@ -208,6 +208,7 @@ interface Scope {
   account?: true;
   /** Stays on this device, settings sync leaves it alone. */
   device?: true;
+  perAccount?: true;
 }
 
 const toggle = (value: boolean, scope: Scope = {}) => ({
@@ -303,7 +304,7 @@ const SETTINGS = {
   searchCrawler: toggle(true),
   searchUnmeteredOnly: toggle(true, { device: true }),
   searchSharing: toggle(true, { device: true }),
-  serverSearch: toggle(true),
+  serverSearch: toggle(true, { perAccount: true }),
   showHome: toggle(false, { account: true }),
   restoreLastRoom: toggle(true, { account: true }),
   showSearch: toggle(false, { account: true }),
@@ -316,6 +317,7 @@ const SETTINGS = {
   tintRoomIcons: toggle(false, { account: true }),
   showBridgeBadges: toggle(true, { account: true }),
   showSpaceEvents: toggle(true, { account: true }),
+  showAlertZoo: toggle(false),
 
   hour24Clock: toggle(false, { account: true }),
   dateFormat: choice<DateFormat>(['auto', 'dmy', 'mdy', 'ymd'], 'auto', { account: true }),
@@ -406,14 +408,16 @@ const SETTINGS = {
   personaGrid: toggle(true, { account: true }),
   personaAlternateAvatar: toggle(false, { account: true }),
 
-  sendTypingNotifications: toggle(true, { account: true }),
-  sendReadReceipts: toggle(true, { account: true }),
-  sendPresence: toggle(true, { account: true }),
+  sendTypingNotifications: toggle(true, { account: true, perAccount: true }),
+  sendReadReceipts: toggle(true, { account: true, perAccount: true }),
+  sendPresence: toggle(true, { account: true, perAccount: true }),
   blurMedia: toggle(false, { account: true }),
   blurAvatars: toggle(false, { account: true }),
   blurEmotes: toggle(false, { account: true }),
-  presence: choice<PresenceView>(['online', 'unavailable', 'offline'], 'online'),
-  presenceStatusMessage: text(''),
+  presence: choice<PresenceView>(['online', 'unavailable', 'busy', 'offline'], 'online', {
+    perAccount: true,
+  }),
+  presenceStatusMessage: text('', { perAccount: true }),
   loadingAnimal: text('', { account: true }),
 
   mediaAutoLoad: choice<MediaAutoLoad>(['on', 'private', 'off'], 'on', {
@@ -424,9 +428,9 @@ const SETTINGS = {
   pauseAnimationsWhenInactive: toggle(false, { account: true }),
   autoplayStickers: toggle(true, { account: true }),
   gifProvider: choice<GifProviderSetting>(['default', 'klipy', 'tenor', 'giphy'], 'default'),
-  urlPreviews: toggle(false, { account: true }),
+  urlPreviews: toggle(false, { account: true, perAccount: true }),
   themeFileCards: toggle(true, { account: true }),
-  encryptedUrlPreviews: toggle(false),
+  encryptedUrlPreviews: toggle(false, { perAccount: true }),
   clientEmbeds: toggle(false),
   encryptedClientEmbeds: toggle(false),
   youtubeEmbeds: toggle(false),
@@ -580,6 +584,9 @@ export const PREFERENCE_RANGES = Object.fromEntries(
 ) as Record<RangePreference, { min: number; max: number }>;
 
 export const ACCOUNT_PREFERENCES = PREFERENCE_KEYS.filter((key) => SETTINGS[key].account);
+export const PER_ACCOUNT_PREFERENCES: ReadonlySet<keyof Preferences> = new Set(
+  PREFERENCE_KEYS.filter((key) => SETTINGS[key].perAccount)
+);
 export const NON_SYNCABLE_KEYS: ReadonlySet<keyof Preferences> = new Set(
   PREFERENCE_KEYS.filter((key) => SETTINGS[key].device)
 );

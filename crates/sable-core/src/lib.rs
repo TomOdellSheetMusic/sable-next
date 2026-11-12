@@ -117,7 +117,7 @@ use matrix_sdk_ui::timeline::Timeline;
 use tokio::sync::{Mutex, mpsc, watch};
 use url::Url;
 
-use protocol::{CoreEvent, RpcError, SubscriptionId};
+use protocol::{CoreEvent, RpcCode, RpcError, SubscriptionId};
 use session::AccountRegistry;
 use store::SessionStore;
 
@@ -143,6 +143,7 @@ pub struct Core {
     session_store_lock: Mutex<()>,
     credential_writers: Mutex<HashMap<String, u64>>,
     next_credential_writer: AtomicU64,
+    next_login_attempt: AtomicU64,
     account_clients: Mutex<HashMap<String, matrix_sdk::Client>>,
     session_handlers: parking_lot::Mutex<Vec<matrix_sdk::event_handler::EventHandlerDropGuard>>,
     probed_pinned_rooms: parking_lot::Mutex<
@@ -204,7 +205,7 @@ pub struct Core {
     search_sharing: search::SearchSharing,
     rtc: rtc::RtcSessions,
     search_network: search::CrawlNetwork,
-    search_foreground: AtomicBool,
+    app_in_foreground: AtomicBool,
     shut_down: AtomicBool,
     activity: activity::Activity,
     server_search_enabled: AtomicBool,
@@ -256,6 +257,7 @@ enum LoginMethod {
 }
 
 struct PendingLogin {
+    attempt: u64,
     method: LoginMethod,
     account_id: String,
     account_store_id: String,
@@ -322,7 +324,7 @@ impl Core {
             search_sharing: search::SearchSharing::default(),
             rtc: rtc::RtcSessions::default(),
             search_network: search::CrawlNetwork::default(),
-            search_foreground: AtomicBool::new(true),
+            app_in_foreground: AtomicBool::new(true),
             shut_down: AtomicBool::new(false),
             activity: activity::Activity::new(),
             server_search_enabled: AtomicBool::new(true),
@@ -337,6 +339,7 @@ impl Core {
             session_store_lock: Mutex::new(()),
             credential_writers: Mutex::new(HashMap::new()),
             next_credential_writer: AtomicU64::new(1),
+            next_login_attempt: AtomicU64::new(1),
             account_clients: Mutex::new(HashMap::new()),
             session_handlers: parking_lot::Mutex::new(Vec::new()),
             probed_pinned_rooms: parking_lot::Mutex::new(HashMap::new()),
@@ -510,15 +513,15 @@ impl Core {
         self.foreground_paginations.load(Ordering::Relaxed)
     }
 
-    pub fn update_app_in_foreground(&self, foreground: bool) {
-        self.search_foreground.store(foreground, Ordering::Relaxed);
-        self.refresh_search_peers();
+    pub async fn update_app_in_foreground(&self, foreground: bool) {
+        self.app_in_foreground.store(foreground, Ordering::Relaxed);
+        self.refresh_search_peers().await;
     }
 
     pub(crate) fn search_crawl_active(&self) -> bool {
         !self.search_sharing.discovering()
             && self.activity.app_active()
-            && self.search_foreground.load(Ordering::Relaxed)
+            && self.app_in_foreground.load(Ordering::Relaxed)
             && self.search_network.allows_crawl()
     }
 
@@ -628,7 +631,7 @@ impl Core {
     pub(crate) async fn client(&self) -> Result<matrix_sdk::Client, RpcError> {
         self.session
             .current(|session| session.client.clone())
-            .ok_or(RpcError::NotLoggedIn)
+            .ok_or_else(|| RpcCode::NotLoggedIn.into())
     }
 
     pub(crate) async fn account_data_types(&self) -> Result<Vec<String>, RpcError> {
@@ -638,7 +641,7 @@ impl Core {
             self.with_open_stores(async || account_data::stored_types(&client).await)
                 .await,
         );
-        match account_data::server_types(&client, presence::state(self.desired_presence())).await {
+        match account_data::server_types(&client, self.sync_presence().await).await {
             Ok(listed) => {
                 for event_type in listed {
                     if !types.contains(&event_type) {
@@ -760,14 +763,14 @@ impl Core {
     ) -> Result<Arc<matrix_sdk_ui::sync_service::SyncService>, RpcError> {
         self.session
             .current(|session| session.sync_service.clone())
-            .ok_or(RpcError::NotLoggedIn)
+            .ok_or_else(|| RpcCode::NotLoggedIn.into())
     }
 
     pub(crate) async fn room(&self, room_id: &OwnedRoomId) -> Result<matrix_sdk::Room, RpcError> {
         self.client()
             .await?
             .get_room(room_id)
-            .ok_or(RpcError::UnknownRoom)
+            .ok_or_else(|| RpcCode::UnknownRoom.into())
     }
 }
 
@@ -847,8 +850,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn app_activity_gates_the_search_crawler() {
+    #[tokio::test]
+    async fn app_activity_gates_the_search_crawler() {
         let (core, _rx) = Core::new("test", Box::new(store::MemorySessionStore::default()));
         core.search_network.set_unmetered(true);
         assert!(core.search_crawl_active());
@@ -858,8 +861,34 @@ mod tests {
 
         core.set_app_active(true);
         assert!(core.search_crawl_active());
-        core.update_app_in_foreground(false);
+        core.update_app_in_foreground(false).await;
         assert!(!core.search_crawl_active());
+    }
+
+    #[tokio::test]
+    async fn a_closing_page_takes_only_its_own_subscriptions() {
+        fn subscription() -> Subscription {
+            Subscription {
+                tasks: Vec::new(),
+                timeline: None,
+                overlay: None,
+                thread_root: None,
+                kind: SubscriptionKind::Other,
+            }
+        }
+
+        let (core, _rx) = Core::new("test", Box::new(store::MemorySessionStore::default()));
+        let old = core.allocate_subscription();
+        core.subscriptions.lock().await.insert(old, subscription());
+        let dropping = core.drop_open_subscriptions();
+
+        let new = core.allocate_subscription();
+        core.subscriptions.lock().await.insert(new, subscription());
+        dropping.await;
+
+        let open = core.subscriptions.lock().await;
+        assert!(!open.contains_key(&old));
+        assert!(open.contains_key(&new));
     }
 
     #[tokio::test]
@@ -868,7 +897,10 @@ mod tests {
         assert!(matches!(
             core.run(crate::api::timeline::SubscribeRoomListParams::default())
                 .await,
-            Err(RpcError::NotLoggedIn)
+            Err(RpcError {
+                code: RpcCode::NotLoggedIn,
+                ..
+            })
         ));
     }
 
@@ -877,7 +909,10 @@ mod tests {
         let (core, _rx) = Core::new("test", Box::new(FailingClearSessionStore));
         assert!(matches!(
             core.clear_persisted_session().await,
-            Err(RpcError::Failed { .. })
+            Err(RpcError {
+                code: RpcCode::Failed { .. },
+                ..
+            })
         ));
     }
 
@@ -1062,7 +1097,10 @@ mod tests {
                 account_id: "a1".to_owned()
             })
             .await,
-            Err(RpcError::NotLoggedIn)
+            Err(RpcError {
+                code: RpcCode::NotLoggedIn,
+                ..
+            })
         ));
     }
 

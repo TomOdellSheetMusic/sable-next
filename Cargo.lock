@@ -2415,6 +2415,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "error-stack"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d01a8d4d427153bae0c38ca68d7912cbf9903fdcc97ecac18801738b3656a46d"
+dependencies = [
+ "anyhow",
+ "rustc_version",
+ "tracing",
+ "tracing-error",
+]
+
+[[package]]
 name = "evdev"
 version = "0.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4426,9 +4438,9 @@ dependencies = [
 
 [[package]]
 name = "libsqlite3-sys"
-version = "0.38.2"
+version = "0.39.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1d20bef17f513b9b3004532233187769cd072d790971f4e4da0e346eb6401e8"
+checksum = "14a5f01b87b92705d07b433c06f96cbc764637d81a0bffb5734ce17cf0f9a2b3"
 dependencies = [
  "cc",
  "pkg-config",
@@ -4717,7 +4729,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "anymap3",
  "as_variant",
@@ -4773,7 +4785,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-base"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "as_variant",
  "assert_matches",
@@ -4805,7 +4817,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-common"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "eyeball-im",
  "futures-core",
@@ -4828,7 +4840,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-crypto"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "aes",
  "as_variant",
@@ -4868,7 +4880,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-indexeddb"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "async-trait",
  "base64 0.23.1",
@@ -4901,7 +4913,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-qrcode"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "byteorder",
  "qrcode",
@@ -4913,7 +4925,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-sqlite"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "as_variant",
  "async-trait",
@@ -4941,7 +4953,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-store-encryption"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "base64 0.23.1",
  "blake3",
@@ -4963,7 +4975,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "as_variant",
  "ctor",
@@ -4987,7 +4999,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test-macros"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "quote",
  "syn 3.0.9",
@@ -4996,7 +5008,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-test-utils"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "ctor",
  "tracing-subscriber",
@@ -5005,7 +5017,7 @@ dependencies = [
 [[package]]
 name = "matrix-sdk-ui"
 version = "0.19.1"
-source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=f609388c27bd03ad0234c266bde8f778faacc600#f609388c27bd03ad0234c266bde8f778faacc600"
+source = "git+https://git.sable.moe/SableClient/matrix-rust-sdk?rev=fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a#fe7c3c21a48a7918ef40b675aa44d0d75e04bd1a"
 dependencies = [
  "as_variant",
  "async-rx",
@@ -7464,11 +7476,12 @@ dependencies = [
 [[package]]
 name = "ruma"
 version = "0.17.2"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "assign",
  "js_int",
  "js_option",
+ "ruma-appservice-api",
  "ruma-client-api",
  "ruma-common",
  "ruma-events",
@@ -7479,9 +7492,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruma-appservice-api"
+version = "0.17.1"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
+dependencies = [
+ "http",
+ "js_int",
+ "ruma-common",
+ "ruma-events",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ruma-client-api"
 version = "0.25.2"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "as_variant",
  "assign",
@@ -7503,7 +7529,7 @@ dependencies = [
 [[package]]
 name = "ruma-common"
 version = "0.20.2"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "as_variant",
  "base64 0.23.1",
@@ -7536,7 +7562,7 @@ dependencies = [
 [[package]]
 name = "ruma-events"
 version = "0.35.2"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "as_variant",
  "indexmap 2.14.2",
@@ -7557,7 +7583,7 @@ dependencies = [
 [[package]]
 name = "ruma-federation-api"
 version = "0.16.1"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "http",
  "http-auth",
@@ -7577,7 +7603,7 @@ dependencies = [
 [[package]]
 name = "ruma-html"
 version = "0.9.0"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "as_variant",
  "html5ever 0.39.0",
@@ -7588,7 +7614,7 @@ dependencies = [
 [[package]]
 name = "ruma-identifiers-validation"
 version = "0.14.0"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "js_int",
  "thiserror 2.0.21",
@@ -7597,7 +7623,7 @@ dependencies = [
 [[package]]
 name = "ruma-macros"
 version = "0.20.2"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "as_variant",
  "cfg-if",
@@ -7613,7 +7639,7 @@ dependencies = [
 [[package]]
 name = "ruma-signatures"
 version = "0.22.1"
-source = "git+https://github.com/ruma/ruma?rev=0ed7fba34213f18a628a56f527c6cc795cd7eef5#0ed7fba34213f18a628a56f527c6cc795cd7eef5"
+source = "git+https://github.com/ruma/ruma?rev=5133d4ec2846884b1d80a3769004524c34273c02#5133d4ec2846884b1d80a3769004524c34273c02"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
@@ -7628,9 +7654,9 @@ dependencies = [
 
 [[package]]
 name = "rusqlite"
-version = "0.40.2"
+version = "0.41.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23f2a97da3e3873c73cb2a2e71b35c40ff95e0b1eefa8d72d8499a6928c3b5b3"
+checksum = "da9bba6f3506135e120a6586df05be18b48d18896600646a4bec8f993d91a594"
 dependencies = [
  "bitflags 2.13.2",
  "fallible-iterator",
@@ -7808,6 +7834,7 @@ dependencies = [
  "charabia",
  "criterion",
  "ctr",
+ "error-stack",
  "futures-util",
  "getrandom 0.4.3",
  "hashlink",
@@ -7860,6 +7887,7 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tracing",
+ "tracing-error",
  "tracing-subscriber",
  "url",
  "wasm-bindgen",
@@ -7887,7 +7915,7 @@ dependencies = [
 [[package]]
 name = "sable-link-preview"
 version = "0.1.0"
-source = "git+https://git.sable.moe/SableClient/link-preview.git?rev=6e3d8d5bc168384d6d09be8b1c4bd10c2eff6873#6e3d8d5bc168384d6d09be8b1c4bd10c2eff6873"
+source = "git+https://git.sable.moe/SableClient/link-preview.git?rev=c61eff7f44dacf8f519d2fa2e9bfe68d3686ddbb#c61eff7f44dacf8f519d2fa2e9bfe68d3686ddbb"
 dependencies = [
  "futures-util",
  "lol_html",
@@ -9568,7 +9596,7 @@ dependencies = [
 [[package]]
 name = "tauri-plugin-livekit-mobile"
 version = "0.2.0"
-source = "git+https://github.com/SableClient/tauri-plugin-livekit-mobile.git?rev=a50cb0db7e812367cbf4be65fe049ae73a0a8d23#a50cb0db7e812367cbf4be65fe049ae73a0a8d23"
+source = "git+https://github.com/SableClient/tauri-plugin-livekit-mobile.git?rev=c3736f2e5c5428856758111dd8ded85478145b85#c3736f2e5c5428856758111dd8ded85478145b85"
 dependencies = [
  "base64 0.22.1",
  "serde",
@@ -10329,6 +10357,16 @@ checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
  "valuable",
+]
+
+[[package]]
+name = "tracing-error"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b1581020d7a273442f5b45074a6a57d5757ad0a47dac0e9f0bd57b81936f3db"
+dependencies = [
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

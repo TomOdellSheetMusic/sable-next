@@ -811,7 +811,7 @@
   }
 
   .message.highlighted {
-    --message-highlight-duration: 6s;
+    --message-highlight-duration: 2s;
   }
 
   .message.highlighted:not(.mention-silent, .mention-loud) {
@@ -869,15 +869,9 @@
       color: var(--primary-on-container);
     }
 
-    16% {
+    50% {
       background-color: var(--primary-container-active);
       color: var(--primary-on-container);
-    }
-
-    33%,
-    100% {
-      background-color: transparent;
-      color: inherit;
     }
   }
 
@@ -888,15 +882,10 @@
   }
 
   @keyframes jump-reduced {
-    0% {
+    0%,
+    99% {
       background-color: var(--primary-container);
       color: var(--primary-on-container);
-    }
-
-    33%,
-    100% {
-      background-color: transparent;
-      color: inherit;
     }
   }
 
@@ -927,7 +916,10 @@
         var(--page-gutter) - var(--space-100) + var(--avatar-size-small) + var(--timeline-row-gap)
       );
     }
+  }
 
+  /* Not any-hover: phones report it, and a tap there shows actions that vanish on release. */
+  @media (hover: hover) and (pointer: fine) {
     .message:hover,
     .message.menu-open {
       background-color: var(--surface-container-hover);

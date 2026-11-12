@@ -3,7 +3,10 @@
 </script>
 
 <script lang="ts">
+  import { cubicOut } from 'svelte/easing';
   import { MediaQuery } from 'svelte/reactivity';
+  import { slide } from 'svelte/transition';
+  import { MOTION_MS, motionMs } from '#lib/ui/motion.js';
   import type {
     ImageUsageView,
     MemberView,
@@ -67,6 +70,13 @@
   import type { AutocompleteQuery, Suggestion } from './autocomplete';
   import { formattedForEditing, type ComposerContext } from '#lib/composer/composer-context.js';
   import {
+    readBotCommand,
+    readDraft,
+    writeBotCommand,
+    writeDraft,
+    type BotCommandDraft,
+  } from '#lib/composer/composer-drafts.svelte.js';
+  import {
     previewKind,
     restoreFile,
     stageFiles,
@@ -110,7 +120,6 @@
     buildInvocation,
     draftsFromText,
     matchBotCommand,
-    type ArgumentDrafts,
     type BotCommand,
     type BotCommandInvocation,
   } from './bot-commands';
@@ -318,14 +327,9 @@
   let previousContext: ComposerContext | null = untrack(() => restoredContext);
   let deleteEditTarget = $state.raw<ComposerContext | null>(null);
   let members = $derived(roomMembers?.length ? roomMembers : sources.loadedMembers);
-  let activeBotCommand = $derived.by<{
-    command: BotCommand;
-    drafts: ArgumentDrafts;
-    prefix: string;
-  } | null>(() => {
-    void roomId;
-    return null;
-  });
+  let activeBotCommand = $derived(
+    readBotCommand(draftKey(), core.session?.account_id ?? '') ?? null
+  );
 
   let desktop = $derived(appLayout.current);
   let sending = $derived(inFlight > 0);
@@ -559,6 +563,10 @@
       prefilledFor = null;
       prefilledDoc = undefined;
       error = null;
+      retry = null;
+      pollOpen = false;
+      locationOpen = false;
+      scheduleOpen = false;
       recording = false;
       recordingDraft = undefined;
       boardOpen = false;
@@ -610,16 +618,9 @@
   $effect(() => {
     if (context === previousContext) return;
 
-    const wasActive = previousContext !== null;
     previousContext = context;
     const frame = requestAnimationFrame(() => {
-      if (context !== null) {
-        editor.focus();
-      } else if (wasActive && !desktop && !sending) {
-        editor.blur();
-        const activeElement = document.activeElement;
-        if (activeElement instanceof HTMLElement) activeElement.blur();
-      }
+      if (context !== null) editor.focus();
     });
 
     return () => {
@@ -627,14 +628,20 @@
     };
   });
 
+  function storeBotCommand(command: BotCommandDraft | null): void {
+    activeBotCommand = command;
+    writeBotCommand(draftKey(), command, core.session?.account_id ?? '');
+  }
+
   function openBotCommand(command: BotCommand, args: string, prefix: string): void {
-    activeBotCommand = { command, drafts: draftsFromText(command, args), prefix };
+    const drafts = $state(draftsFromText(command, args));
+    storeBotCommand({ command, drafts, prefix });
     error = null;
     void sources.loadMembers();
   }
 
   function closeBotCommand(): void {
-    activeBotCommand = null;
+    storeBotCommand(null);
     editor.focus();
   }
 
@@ -645,15 +652,20 @@
   ): Promise<boolean> {
     if (!onSendBotCommand) return false;
     const targetRoomId = roomId;
+    const targetKey = draftKey();
+    const accountId = core.session?.account_id ?? '';
     inFlight += 1;
     error = null;
     try {
       await queue.enqueue(() => onSendBotCommand(targetRoomId, command.sender, body, invocation));
-      if (activeBotCommand?.command === command) closeBotCommand();
+      if (readBotCommand(targetKey, accountId)?.command === command) {
+        writeBotCommand(targetKey, null, accountId);
+        if (targetKey === draftKey()) closeBotCommand();
+      }
       return true;
     } catch (cause) {
       console.debug('[sable composer] bot command failed', cause);
-      error = failureText(cause);
+      if (targetRoomId === roomId) error = failureText(cause);
       return false;
     } finally {
       inFlight -= 1;
@@ -680,6 +692,9 @@
     const matched = matchBotCommand(typed.line, typed.commands);
     if (!matched) return false;
 
+    const targetKey = draftKey();
+    const accountId = core.session?.account_id ?? '';
+    const restore = () => restoreUnsent(targetKey, accountId, doc, []);
     editor.clear();
     if (matched.command.parameters.length === 0 && matched.args !== '') {
       const body = `${typed.prefix}${matched.command.command}${matched.raw_args}`;
@@ -689,7 +704,7 @@
           arguments: {},
         }))
       ) {
-        if (doc && roomId === targetRoomId && editor.isEmpty()) editor.setDoc(doc);
+        restore();
       }
       return true;
     }
@@ -697,7 +712,7 @@
     const result = buildInvocation(matched.command, drafts, typed.prefix);
     if (result.kind === 'built') {
       if (!(await sendBotCommand(matched.command, result.body, result.invocation))) {
-        if (doc && roomId === targetRoomId && editor.isEmpty()) editor.setDoc(doc);
+        restore();
       }
     } else {
       openBotCommand(matched.command, matched.args, typed.prefix);
@@ -767,6 +782,32 @@
     return i18n.t(key, values);
   }
 
+  /** A send outlives a room switch, so its failure is put back in the room it was meant for. */
+  function restoreUnsent(
+    key: string,
+    accountId: string,
+    doc: ProseMirrorNode | undefined,
+    files: StagedFile[]
+  ): boolean {
+    if (key === draftKey() && accountId === (core.session?.account_id ?? '')) {
+      if (doc && editor.isEmpty()) editor.setDoc(doc);
+      staged = [...files, ...staged];
+      return true;
+    }
+    const held = readDraft(key, accountId);
+    const keepsText = held?.doc !== null && held?.doc !== undefined;
+    writeDraft(
+      key,
+      {
+        doc: keepsText ? held.doc : (doc?.toJSON() ?? null),
+        staged: [...files, ...(held?.staged ?? [])],
+        nextStagedId: held?.nextStagedId ?? nextStagedId,
+      },
+      accountId
+    );
+    return false;
+  }
+
   function failRetryably(cause: unknown, run: () => void): void {
     const failure = sendFailure(cause);
     error = i18n.t(failure.key, failure.values);
@@ -802,6 +843,9 @@
     const captionEdit = editingCaption && !attachmentsCancelEdit;
     const asCaption = preferences.sendAttachmentAsCaption;
     let unsent = staged;
+    const target = roomId;
+    const targetKey = draftKey();
+    const accountId = core.session?.account_id ?? '';
 
     inFlight += 1;
     error = null;
@@ -835,7 +879,7 @@
           unsent.every((item) => previewKind(item.file) !== null);
 
         if (gallery) {
-          await onSendGallery(roomId, await Promise.all(unsent.map(outgoingFile)), {
+          await onSendGallery(target, await Promise.all(unsent.map(outgoingFile)), {
             caption: message.body || null,
             formattedCaption: message.formatted,
             mentions: message.mentions,
@@ -848,7 +892,7 @@
         while (unsent.length > 0) {
           const [next, ...rest] = unsent;
           await onSendAttachment(
-            roomId,
+            target,
             await outgoingFile(next),
             captioned
               ? {
@@ -865,13 +909,13 @@
         if (captioned || (message.body === '' && !captionEdit)) return;
         const action = message.imageSourcePacks
           ? await onSend(
-              roomId,
+              target,
               message.body,
               message.formatted,
               message.mentions,
               message.imageSourcePacks
             )
-          : await onSend(roomId, message.body, message.formatted, message.mentions);
+          : await onSend(target, message.body, message.formatted, message.mentions);
         if (isGifSearchAction(action)) {
           boardTab = 'gif';
           boardQuery = action.query;
@@ -881,9 +925,9 @@
       editor.clearHistory();
     } catch (cause) {
       console.debug('[sable composer] send failed', cause);
-      if (doc && editor.isEmpty()) editor.setDoc(doc);
-      staged = [...unsent, ...staged];
-      failRetryably(cause, () => void send());
+      if (restoreUnsent(targetKey, accountId, doc, unsent)) {
+        failRetryably(cause, () => void send());
+      }
     } finally {
       inFlight -= 1;
     }
@@ -907,6 +951,9 @@
 
     const attachments = staged;
     const delayIds: string[] = [];
+    const target = roomId;
+    const targetKey = draftKey();
+    const accountId = core.session?.account_id ?? '';
 
     editor.clear();
     staged = [];
@@ -916,20 +963,20 @@
       for (const attachment of attachments) {
         delayIds.push(
           await core.media.scheduleAttachment(
-            roomId,
+            target,
             await outgoingFile(attachment),
             dueTs,
             attachment.spoiler,
             outgoingPersona(
               personas,
-              roomId,
-              personaSpaces(roomList.rooms, roomId, undefined).order
+              target,
+              personaSpaces(roomList.rooms, target, undefined).order
             ).persona
           )
         );
       }
       if (message.body !== '') {
-        await onSchedule(roomId, message.body, message.formatted, dueTs);
+        await onSchedule(target, message.body, message.formatted, dueTs);
       }
       editor.clearHistory();
       error = null;
@@ -939,12 +986,12 @@
         delayIds.map((delayId) => core.rpc.messages.cancelScheduled({ delay_id: delayId }))
       );
       if (cause instanceof ScheduledOriginalKept) {
+        if (target !== roomId) return;
         editor.clearHistory();
         error = i18n.t('composer.scheduledOriginalKept');
         return;
       }
-      if (doc && editor.isEmpty()) editor.setDoc(doc);
-      staged = [...attachments, ...staged];
+      if (!restoreUnsent(targetKey, accountId, doc, attachments)) return;
       error = i18n.t(
         attachments.length > 0 && isServerScheduleUnsupported(cause)
           ? 'composer.scheduleAttachmentUnsupported'
@@ -968,16 +1015,17 @@
 
   async function sendVoice(file: File): Promise<void> {
     void stopRecording();
+    const target = roomId;
     inFlight += 1;
     error = null;
 
     try {
       await queue.enqueue(async () => {
-        await onSendAttachment(roomId, file, {});
+        await onSendAttachment(target, file, {});
       });
     } catch (cause) {
       console.debug('[sable composer] voice message failed', cause);
-      failRetryably(cause, () => void sendVoice(file));
+      if (target === roomId) failRetryably(cause, () => void sendVoice(file));
     } finally {
       inFlight -= 1;
     }
@@ -1488,7 +1536,10 @@
             />
             <ComposerField {editor} {showPlaceholder} {placeholder} bind:expanded />
             {#if formattingOpen}
-              <div class="composer-formatting">
+              <div
+                class="composer-formatting"
+                transition:slide={{ duration: motionMs(MOTION_MS.quick), easing: cubicOut }}
+              >
                 <ComposerFormatting
                   active={activeFormats}
                   source={sourceMode}

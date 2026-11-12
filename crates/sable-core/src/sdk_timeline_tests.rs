@@ -33,7 +33,7 @@ use wiremock::{
 use super::{
     Core,
     api::timeline::TimelineFocusView,
-    protocol::{CoreEvent, Outgoing, RpcError},
+    protocol::{CoreEvent, Outgoing, RpcCode, RpcError},
     session::{self, Session},
     store::MemorySessionStore,
 };
@@ -532,7 +532,13 @@ async fn oversized_sends_return_message_too_large() {
         .await;
 
     assert!(
-        matches!(result, Err(RpcError::MessageTooLarge)),
+        matches!(
+            result,
+            Err(RpcError {
+                code: RpcCode::MessageTooLarge,
+                ..
+            })
+        ),
         "{result:?}"
     );
     assert!(room.send_queue().subscribe().await.unwrap().0.is_empty());
@@ -574,7 +580,13 @@ async fn oversized_edits_return_message_too_large() {
         .await;
 
     assert!(
-        matches!(result, Err(RpcError::MessageTooLarge)),
+        matches!(
+            result,
+            Err(RpcError {
+                code: RpcCode::MessageTooLarge,
+                ..
+            })
+        ),
         "{result:?}"
     );
     assert!(room.send_queue().subscribe().await.unwrap().0.is_empty());
@@ -615,7 +627,13 @@ async fn oversized_direct_sends_return_message_too_large() {
         .await;
 
     assert!(
-        matches!(result, Err(RpcError::MessageTooLarge)),
+        matches!(
+            result,
+            Err(RpcError {
+                code: RpcCode::MessageTooLarge,
+                ..
+            })
+        ),
         "{result:?}"
     );
 }
@@ -1049,7 +1067,10 @@ async fn a_locked_profile_override_document_refuses_a_write() {
     let core = core_for(&server, client).await;
     assert!(matches!(
         core.run(clear_override("@s:example.org")).await,
-        Err(crate::protocol::RpcError::DocumentLocked)
+        Err(crate::protocol::RpcError {
+            code: crate::protocol::RpcCode::DocumentLocked,
+            ..
+        })
     ));
 }
 
@@ -2002,7 +2023,13 @@ async fn attachments_use_the_server_upload_limit_instead_of_100_mib() {
         let result =
             Box::pin(core.send_attachment(request, attachment_bytes(&vec![0; file_size]))).await;
         if u64::try_from(file_size).unwrap() > upload_size {
-            assert!(matches!(result, Err(RpcError::InvalidMedia)));
+            assert!(matches!(
+                result,
+                Err(RpcError {
+                    code: RpcCode::InvalidMedia,
+                    ..
+                })
+            ));
         } else {
             result.unwrap();
         }
@@ -3377,7 +3404,13 @@ async fn a_forbidden_room_write_is_reported_as_denied() {
     .expect("the mocked server rejects the write");
 
     assert!(
-        matches!(error, RpcError::Denied),
+        matches!(
+            error,
+            RpcError {
+                code: RpcCode::Denied,
+                ..
+            }
+        ),
         "expected Denied, got {error:?}"
     );
 }
@@ -3394,8 +3427,8 @@ async fn a_rate_limited_room_write_carries_the_delay_in_milliseconds() {
 
     assert!(
         matches!(
-            error,
-            RpcError::RateLimited {
+            error.code,
+            RpcCode::RateLimited {
                 retry_after_ms: Some(5000)
             }
         ),
@@ -3410,7 +3443,13 @@ async fn an_unavailable_homeserver_is_retryable_rather_than_a_logged_failure() {
         .expect("the mocked server rejects the write");
 
     assert!(
-        matches!(error, RpcError::Unavailable),
+        matches!(
+            error,
+            RpcError {
+                code: RpcCode::Unavailable,
+                ..
+            }
+        ),
         "expected Unavailable, got {error:?}"
     );
 }
@@ -5479,7 +5518,7 @@ async fn notification_replies_resolve_room_and_account_profiles() {
                 .mount(server.server())
                 .await;
         }
-        let profile = crate::personas::notification_profile(&client, room_id)
+        let (_, profile) = crate::personas::notification_reply(&client, room_id, "hi")
             .await
             .unwrap();
         assert_eq!(
@@ -5487,6 +5526,61 @@ async fn notification_replies_resolve_room_and_account_profiles() {
                 .as_ref()
                 .and_then(|profile| profile.display_name.as_deref()),
             expected
+        );
+    }
+}
+
+#[tokio::test]
+async fn a_notification_reply_follows_a_profile_shorthand_when_proxying_is_on() {
+    for (proxying, body, expected_text, expected_profile) in [
+        (true, "k: hi", "hi", "Kris"),
+        (true, "hello", "hello", "Account profile"),
+        (false, "k: hi", "k: hi", "Account profile"),
+    ] {
+        let server = MatrixMockServer::new().await;
+        let client = server.client_builder().build().await;
+        let room_id = room_id!("!profile:example.org");
+        server.sync_joined_room(&client, room_id).await;
+        for (event_type, content) in [
+            (
+                "fyi.cisnt.permessageprofile.roomassociation",
+                json!({"associations": {}}),
+            ),
+            (
+                "fyi.cisnt.permessageprofile.globalassociation",
+                json!({"association": {"profileId": "account"}}),
+            ),
+            (
+                "fi.mau.msc4461.per_message_profiles.v3",
+                json!({"profiles": [
+                    {"id": "account", "displayname": "Account profile"},
+                    {"id": "kris", "displayname": "Kris", "triggers": [{"prefix": "k:"}]},
+                ]}),
+            ),
+            (
+                "moe.sable.next.settings",
+                json!({"settings": {"personaProxying": proxying}}),
+            ),
+        ] {
+            Mock::given(method("GET"))
+                .and(path_regex(format!(
+                    "/account_data/{}$",
+                    event_type.replace('.', "\\.")
+                )))
+                .respond_with(ResponseTemplate::new(200).set_body_json(content))
+                .mount(server.server())
+                .await;
+        }
+
+        let (text, profile) = crate::personas::notification_reply(&client, room_id, body)
+            .await
+            .unwrap();
+
+        assert_eq!(text, expected_text, "{body}");
+        assert_eq!(
+            profile.and_then(|profile| profile.display_name),
+            Some(expected_profile.to_owned()),
+            "{body}"
         );
     }
 }
@@ -5598,7 +5692,10 @@ async fn thread_actions_accept_linked_context_only_for_its_inferred_root() {
             Some(result.subscription)
         )
         .await,
-        Err(RpcError::UnknownSubscription)
+        Err(RpcError {
+            code: RpcCode::UnknownSubscription,
+            ..
+        })
     ));
     assert!(matches!(
         core.subscribed_timeline(
@@ -5607,7 +5704,10 @@ async fn thread_actions_accept_linked_context_only_for_its_inferred_root() {
             Some(result.subscription)
         )
         .await,
-        Err(RpcError::UnknownSubscription)
+        Err(RpcError {
+            code: RpcCode::UnknownSubscription,
+            ..
+        })
     ));
 }
 

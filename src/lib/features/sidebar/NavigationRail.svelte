@@ -62,6 +62,8 @@
   import UsersIcon from 'phosphor-svelte/lib/UsersIcon';
   import BridgeBadge from './BridgeBadge.svelte';
   import UserQuickTools from './UserQuickTools.svelte';
+  import ResponsivePopover from '#lib/ui/primitives/ResponsivePopover.svelte';
+  import AlertList, { alertListState } from './AlertList.svelte';
 
   type RailSection = 'home' | 'unspaced' | 'direct';
 
@@ -90,6 +92,7 @@
     spaces: readonly RoomListItemView[];
     spaceUnread?: ReadonlyMap<string, UnreadCount>;
     callSpaces?: ReadonlySet<string>;
+    voiceSpaces?: ReadonlySet<string>;
     homeUnread?: UnreadCount;
     unspacedUnread?: UnreadCount;
     directRooms?: readonly RoomListItemView[];
@@ -119,6 +122,7 @@
     spaces,
     spaceUnread = new Map(),
     callSpaces = new Set(),
+    voiceSpaces = new Set(),
     homeUnread = NO_UNREAD,
     unspacedUnread = NO_UNREAD,
     directRooms = [],
@@ -148,6 +152,10 @@
 
   function unreadId(key: string): string {
     return `${uid}-unread-${key}`;
+  }
+
+  function voiceId(key: string): string {
+    return `${uid}-voice-${key}`;
   }
 
   function unreadLabel(count: UnreadCount | undefined): string | undefined {
@@ -304,6 +312,8 @@
   function outlined(item: RailItem): boolean {
     return item.icon !== undefined || item.dm === true;
   }
+
+  let alertListPopoverAnchor = $state.raw<HTMLElement | null>(null);
 
   let displayAnchor = $state.raw<CursorAnchor | null>(null);
   let displayOpen = $state(false);
@@ -616,6 +626,12 @@
   {/if}
   {#if item.space && item.roomId ? callSpaces.has(item.roomId) : item.inCall}
     <span class="call-mark" aria-hidden="true"><SpeakerHighIcon weight="fill" /></span>
+  {:else if item.space && item.roomId && voiceSpaces.has(item.roomId)}
+    <span class="call-mark others" id={voiceId(item.roomId)}
+      ><SpeakerHighIcon aria-hidden="true" /><span class="screen-reader-only"
+        >{i18n.t('nav.voiceActive')}</span
+      ></span
+    >
   {/if}
 {/snippet}
 
@@ -637,7 +653,12 @@
         }
       : undefined}
     aria-label={i18n.t(item.label)}
-    aria-describedby={describedBy(props, unreadId(item.roomId ?? item.href))}
+    aria-describedby={describedBy(
+      props,
+      item.space && item.roomId && voiceSpaces.has(item.roomId)
+        ? `${unreadId(item.roomId)} ${voiceId(item.roomId)}`
+        : unreadId(item.roomId ?? item.href)
+    )}
     aria-current={active ? 'page' : undefined}
   >
     <span class="nav-tab-hit-area" aria-hidden="true"></span>
@@ -934,7 +955,23 @@
     </ul>
   </div>
   {#if !mobile && compact}
-    <UserQuickTools compact />
+    {#if alertListPopoverAnchor}
+      <ResponsivePopover
+        label={i18n.t('nav.alerts')}
+        closeLabel={i18n.t('common.close')}
+        side="right"
+        align="start"
+        class="sidebar-popover alert-popover menu-surface"
+        sideOffset={8}
+        anchor={alertListPopoverAnchor}
+        bind:open={alertListState.open}
+      >
+        <AlertList isDrawer={false} />
+      </ResponsivePopover>
+    {/if}
+    <div bind:this={alertListPopoverAnchor}>
+      <UserQuickTools compact />
+    </div>
   {/if}
 </nav>
 
@@ -1163,6 +1200,12 @@
     z-index: 1;
   }
 
+  .call-mark.others {
+    background: var(--bg-container);
+    border-color: var(--success-main);
+    color: var(--success-main);
+  }
+
   .call-mark :global(svg) {
     height: 0.625rem;
     width: 0.625rem;
@@ -1341,5 +1384,9 @@
   .folder-collapse:focus-visible {
     outline: var(--focus-ring-width) solid var(--focus-ring);
     outline-offset: var(--focus-ring-offset);
+  }
+
+  :global(.sidebar-popover) {
+    margin-bottom: var(--space-200);
   }
 </style>

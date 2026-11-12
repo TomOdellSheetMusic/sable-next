@@ -5,7 +5,11 @@
   import { page } from '$app/state';
   import AppShell from '#lib/features/sidebar/AppShell.svelte';
   import SettingsPanel from '#lib/features/settings/SettingsPanel.svelte';
-  import { followSettingsLink } from '#lib/features/settings/settings-navigation.js';
+  import {
+    defaultSettingsSection,
+    followSettingsLink,
+    showSettingsOver,
+  } from '#lib/features/settings/settings-navigation.js';
   import { AppLayout } from '#lib/ui/app-layout.svelte.js';
   import { useCoreClient } from '#lib/core/context.js';
   import {
@@ -17,6 +21,7 @@
   import { roomSectionPath } from '#lib/rooms/permalink.js';
   import { HOME_SECTION, rememberLastRoom } from '#lib/rooms/last-room.js';
   import { provideSpaceSidebar, SpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
+  import { OpenRoomSearch, provideOpenRoomSearch } from '#lib/features/room/room-panels.svelte.js';
   import { PersonaStore, providePersonaStore } from '#lib/personas/personas.svelte.js';
   import { Bookmarks, provideBookmarks } from '#lib/rooms/bookmarks.svelte.js';
   import { EventItems, provideEventItems } from '#lib/features/room/messages/event-items.svelte.js';
@@ -27,12 +32,14 @@
   import {
     backToRoomList,
     contextSearchPath,
+    createRoomPath,
     trackRouteFocus,
   } from '#lib/features/room/room-navigation.js';
   import { MESSAGE_SEARCH_FIELD_ID } from '#lib/features/search/message-search.svelte.js';
   import { InviteActions } from '#lib/rooms/invites.svelte.js';
   import { dismissedInvites } from '#lib/rooms/dismissed-invites.svelte.js';
   import { presenceSharing } from '#lib/rooms/presence-sharing.svelte.js';
+  import { presenceOverride } from '#lib/rooms/presence-override.svelte.js';
   import { dmSpaces } from '#lib/rooms/dm-spaces.svelte.js';
   import { spaceNotifications } from '#lib/rooms/space-notifications.svelte.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
@@ -79,6 +86,7 @@
   import { startSystemBarSync } from '#lib/platform/system-bars.js';
   import { installAndroidBack } from '#lib/platform/android-back.js';
   import {
+    selectPreferenceAccount,
     preferences,
     readReceiptIsPrivate,
     setPreference,
@@ -155,6 +163,7 @@
   import { roomAtOffset } from '#lib/features/sidebar/visible-rooms.svelte.js';
   import { playSound, type NotificationSound } from '#lib/features/notifications/sound.js';
   import MediaViewerHost from '#lib/ui/media/MediaViewerHost.svelte';
+  import ZooAlertControls from '#lib/features/sidebar/ZooAlertControls.svelte';
 
   interface Props {
     children: Snippet;
@@ -175,6 +184,8 @@
   });
   const spaceSidebar = new SpaceSidebar();
   provideSpaceSidebar(spaceSidebar);
+  const openRoomSearch = new OpenRoomSearch();
+  provideOpenRoomSearch(openRoomSearch);
   providePersonaStore(new PersonaStore(core));
   const bookmarks = new Bookmarks(core.rpc.account);
   provideBookmarks(bookmarks);
@@ -194,6 +205,9 @@
   $effect(() => {
     const inputMode = preferences.callInputMode;
     untrack(() => callSession.setInputMode(inputMode));
+  });
+  $effect.pre(() => {
+    selectPreferenceAccount(core.session?.account_id ?? null);
   });
   $effect(() => {
     void core.accountRevision;
@@ -627,8 +641,10 @@
     void core.accountRevision;
     if (core.status !== 'ready') return;
 
-    const message = preferences.presenceStatusMessage.trim();
-    const presence = preferences.sendPresence ? preferences.presence : 'offline';
+    const revised = presenceOverride.supported;
+    const message = revised ? '' : preferences.presenceStatusMessage.trim();
+    const picked = revised ? 'online' : preferences.presence;
+    const presence = preferences.sendPresence ? picked : 'offline';
     const away = presence === 'online' && (!active || idle);
     const status = preferences.sendPresence && message ? message : null;
     const timer = setTimeout(() => {
@@ -988,6 +1004,7 @@
       presence.start(core);
       dismissedInvites.start(core);
       presenceSharing.start(core);
+      presenceOverride.start(core);
       dmSpaces.start(core);
       spaceNotifications.start(core);
       mediaPreviewSettings.start(core);
@@ -1001,6 +1018,7 @@
       presence.stop();
       dismissedInvites.stop();
       presenceSharing.stop();
+      presenceOverride.stop();
       dmSpaces.stop();
       spaceNotifications.stop();
       mediaPreviewSettings.stop();
@@ -1150,6 +1168,7 @@
           paletteState.open = true;
         },
         'app.searchMessages': () => {
+          if (openRoomSearch.run()) return;
           if (page.url.pathname.startsWith(resolve('search'))) {
             document.getElementById(MESSAGE_SEARCH_FIELD_ID)?.focus();
             return;
@@ -1161,7 +1180,18 @@
           void goto(resolve('bookmarks'));
         },
         'app.createRoom': () => {
-          void goto(resolve('create-room'));
+          const space = findRoomByPathId(roomList.rooms, page.params.spaceId) ?? null;
+          void (
+            space === null
+              ? Promise.resolve(false)
+              : core.rpc.members
+                  .permissions({ room_id: space.room_id })
+                  .then((permissions) => permissions.can_manage_children)
+                  .catch(() => false)
+          ).then((canAddChildren) => {
+            // eslint-disable-next-line svelte/no-navigation-without-resolve -- createRoomPath() resolves the route itself
+            void goto(createRoomPath(roomList.rooms, space, canAddChildren));
+          });
         },
         'app.showShortcuts': () => {
           shortcutsHelpState.open = true;
@@ -1180,7 +1210,8 @@
             void callSession.setTalking(false);
           },
         },
-        'call.toggleDeafen': () => {
+        'call.toggleDeafen': (event) => {
+          if (event.repeat || callSession.desktopShortcutStatus === 'portal') return;
           if (callSession.active) callSession.setDeafened(!callSession.deafened);
         },
         'call.toggleCamera': () => {
@@ -1197,7 +1228,8 @@
           if (callSession.active) void callSession.leave();
         },
         'app.openSettings': () => {
-          void goto(resolve('/(app)/settings'));
+          if (appLayout.current) showSettingsOver(defaultSettingsSection());
+          else void goto(resolve('/(app)/settings'));
         },
         'navigation.previousRoom': () => {
           const target = roomAtOffset(openRoomId, -1);
@@ -1342,6 +1374,9 @@
     <ShortcutsHelpDialog bind:open={shortcutsHelpState.open} />
     <ShareTargetSheet inbox={shareInbox} />
     <ToastRegion dismissLabel={i18n.t('common.dismiss')} />
+    {#if preferences.showAlertZoo}
+      <ZooAlertControls />
+    {/if}
   {/key}
 {:else if core.status === 'error'}
   <main class="app-status" aria-labelledby="app-status-title">
